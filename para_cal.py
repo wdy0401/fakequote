@@ -23,7 +23,18 @@ ii.	风险类指标
 nv为净值序列 bm为参考序列：如hs300 
 nv与bm需等长
 '''
+def check_quote_error(nv,bm):
+    re=""
+    if(len(nv)!=len(bm)):
+        re=re+" Length Error\t"
+    if(nv[0]==0 or bm[0]==0):
+        re=re+" First Netvalue Error\t"
+    return re
 def ind_cal(nv,bm):
+    error=check_quote_error(nv,bm)
+    if error:
+        print(error)
+        return""
     #转换成单位净值
     [nv,bm]=[np.array(x)/x[0] for x in [nv,bm]]
     #收益率序列
