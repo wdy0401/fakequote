@@ -63,7 +63,7 @@ class stock(object):
         pass
     def pre_convert(self):
         #day to standard bar
-        #deal open close auction
+        #omit open close auction
         pass
     def time_select(self):
         #gen random selected k bars from total m bars
@@ -88,12 +88,19 @@ class stock(object):
     def auction_adj(self):
         #9:25 for sh sz
         #15:00 for sz
+        #volume adjust by random(0.9,1.1) 
         pass
 
 
 a=pd.read_csv("./data/md/20180102/000001_2.bak.csv",parse_dates=True)
-a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])) for x in range(len(a))]
+a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])+','+str(a['UpdateMillisec'][x])) for x in range(len(a))]
 
 a=pd.read_csv("./data/md/20180102/600000_1.bak.csv",parse_dates=True,encoding="GBK")
-a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])) for x in range(len(a))]
+a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])+','+str(a['UpdateMillisec'][x])) for x in range(len(a))]
+
+
+b=pd.read_csv("./data/md/20180103/600000_1.bak.csv",parse_dates=True,encoding="GBK")
+b.index=[pd.Timestamp(str(b['TradingDay'][x])+" "+str(b['UpdateTime'][x]+','+str(b['UpdateMillisec'][x]))) for x in range(len(b))]
+result = pd.concat([a,b])
+part=result[['OpenPrice','Volume']]
 
