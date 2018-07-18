@@ -5,16 +5,11 @@ Created on Tue Jul 10 09:42:05 2018
 @author: admin
 """
 
-'''
-faketime   oritime    method
-9-10       9-11       压缩
-9-10       9-9.5      拉伸
-9-10       10-11      删除
-'''
-from datetime import datetime
-import pandas as pd
 
-#b=pd.Timestamp("2018-04-02 09:20:15,554").to_pydatetime()
+import pandas as pd
+import pathlib
+import random
+
 
 '''
 按时间段进行价格处理
@@ -48,29 +43,50 @@ import pandas as pd
     如何将集合竞价数据统一成k线数据 
     
 '''
-
-class time_map(object):
-    # pre: day 1min 6sec 500ms
-    def set_pre(self,pre):
-        self.pre=pre
-    pass
-
-
 class stock(object):
+    def __init__(self):
+        pass
+    def set_ctr(self,ctr):
+        ctr=str(ctr)
+        if(ctr[0:3]=='600' or ctr[0:3]=='601'):
+            self.mkt=1#SH
+        elif(ctr[0:3]=='000' or ctr[0:3]=='002' or ctr[0:3]=='300'):
+            self.mkt=2#SZ
+        else:
+            raise ValueError("ERROR stock code "+str(ctr))
+        self.ctr=ctr
+    def set_date_range(self,dates):
+        for dt in dates:
+            fname=self.gen_file_name(dt)
+            if not pathlib.Path(fname).is_file():
+                raise ValueError("File not exist "+fname)
+        self.dates=dates
     def load_histroy(self):
-        #load every day
-        #merge to one dataframe
-        pass
-    def pre_convert(self):
-        #day to standard bar
-        #omit open close auction
-        pass
+        pdlist=list()    
+        for dt in self.dates:
+            fname=self.gen_file_name(dt)
+            a=pd.read_csv(fname,parse_dates=True,encoding="GBK")
+            a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])+','+str(a['UpdateMillisec'][x])) for x in range(len(a))]
+            pdlist.append(a)
+        self.raw_pd=pd.concat(pdlist)
+    def time_grep(self):        #omit open close auction
+        self.pd=self.raw_pd.copy()
+        self.pd['grep']=self.pd.index
+        self.pd['grep']=self.pd['grep'].apply(self.trading_time_grep)
+        self.pd=self.pd[self.pd['grep']!=0]
     def time_select(self):
         #gen random selected k bars from total m bars
         #k different from 
         #   exchange    close auction
         #   pre      tick or 1minbar or etc
-        pass
+        if self.mkt==1:
+            self.bar_num=20*60*4+2
+        elif self.mkt==2:
+            self.bar_num=20*(60*4-3)+2
+        sortlist=list(range(len(self.df)))
+        random.shuffle(sortlist)
+        sortlist=sortlist[0:self.bar_num]
+        sortlist.sort()
     def conbine_bar(self):
         #conbine bars with time select
         #get open from pre set info or determined from today ohlc
@@ -90,17 +106,31 @@ class stock(object):
         #15:00 for sz
         #volume adjust by random(0.9,1.1) 
         pass
-
-
-a=pd.read_csv("./data/md/20180102/000001_2.bak.csv",parse_dates=True)
-a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])+','+str(a['UpdateMillisec'][x])) for x in range(len(a))]
-
-a=pd.read_csv("./data/md/20180102/600000_1.bak.csv",parse_dates=True,encoding="GBK")
-a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])+','+str(a['UpdateMillisec'][x])) for x in range(len(a))]
-
-
-b=pd.read_csv("./data/md/20180103/600000_1.bak.csv",parse_dates=True,encoding="GBK")
-b.index=[pd.Timestamp(str(b['TradingDay'][x])+" "+str(b['UpdateTime'][x]+','+str(b['UpdateMillisec'][x]))) for x in range(len(b))]
-result = pd.concat([a,b])
-part=result[['OpenPrice','Volume']]
-
+    def gen_file_name(self,dt):
+        return f"./data/md/{dt}/{self.ctr}_{self.mkt}.bak.csv"
+    def trading_time_grep(self,x):
+        if ((x.hour==9 and x.minute>29) \
+            or (x.hour==10) \
+            or (x.hour==11 and x.minute<31) \
+            or (x.hour==13) \
+            or (self.mkt==1 and x.hour==14) \
+            or (self.mkt==2 and x.hour==14 and x.minute<57) \
+            or (self.mkt==2 and x.hour==14 and x.minute==57 and x.second==0) \
+            
+            ):#open close auction(x.hour==9 and x.minute==25)  (x.hour==15 and x.minute==0)
+            
+            return x
+        else:
+            return 0
+    
+c=stock()
+c.set_ctr("600000")
+c.set_date_range([20180102,20180103])
+c.load_histroy()
+c.time_grep()
+c.time_select()
+x=c.pd
+'''
+生成nbbo
+空值就是,,
+'''
