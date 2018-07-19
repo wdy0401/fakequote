@@ -2,7 +2,8 @@
 
 import numpy as np
 import math
-import os  
+import os,sys 
+from functools import reduce
 YTD=252#每年交易日数量
 
 '''ind_cal函数接受一个净值序列 一个参考序列 返回收益风险指标
@@ -48,15 +49,29 @@ def ind_cal(nv,bm,name):
     yret=(lastnv-1)*YTD/length
     eyret=(lastnv-lastbm)*YTD/length
     yvol=retnv.std()*(math.sqrt(YTD/length))
-    yshp=yret/yvol
-    yic=(eyret)/((retnv-retbm).std()*(math.sqrt(YTD/length)))
+    yshp=0
+    if yret==0 and yvol==0:
+        yshp=0
+    elif yvol==0:
+        yshp=np.inf
+    yic=0
+    if reduce(lambda x,y:x and y,retnv==retbm):
+        if eyret==0:
+            yic=0
+        else:
+            yic=np.inf
+    else:
+        yic=(eyret)/((retnv-retbm).std()*(math.sqrt(YTD/length)))
     maxdrop=max([(nv[0:x+1].max()-nv[x])/nv[0:x+1].max() for x in range(len(nv))])
     beta=np.corrcoef(retnv,retbm)[0,1]
     alpha=(lastnv-1-(lastbm-1)*beta)*YTD/length
     
     downpart=np.array(list(filter(lambda x: x<0,retnv.tolist())))
-    downvol=downpart.std()*(math.sqrt(YTD/len(downpart)))
-    sortino=yret/downvol
+    downvol=0
+    sortino=0
+    if len(downpart)>0:
+        downvol=downpart.std()*(math.sqrt(YTD/len(downpart)))
+        sortino=yret/downvol
     rlist=[yret,eyret,yshp,yic,alpha,beta,maxdrop,yvol,downvol,sortino]
     plist=[str(round(x,4)) for x in rlist]
     print_list=",".join([name]+plist)
@@ -70,9 +85,10 @@ usedir="./data"
 with open("tactic_para.csv","w") as f:
     dirs=os.listdir(usedir)
     for fn in dirs:
-        if fn[-3:]=="csv":
-            nv=load_net(usedir+"/"+fn)
-            fakebm=[1+0.0001*i for i in range(len(nv))]
+        sys.stderr.write(fn+"\n")
+        if fn[-3:]=="csv":     
+            nv=load_net(usedir+"/"+fn);nv[-1]=nv[-1]+1e-10
+            fakebm=[1+0.0001*i for i in range(len(nv))];fakebm[-1]=fakebm[-1]+1e-10
             f.write(ind_cal(nv,fakebm,os.path.split(fn)[1][0:-4])+"\n")
 
 
