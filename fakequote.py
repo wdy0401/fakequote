@@ -69,28 +69,39 @@ class stock(object):
             a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])+','+str(a['UpdateMillisec'][x])) for x in range(len(a))]
             pdlist.append(a)
         self.raw_pd=pd.concat(pdlist)
+        self.raw_pd=self.raw_pd.drop_duplicates()
     def time_grep(self):        #omit open close auction
-        self.pd=self.raw_pd.copy()
-        self.pd['grep']=self.pd.index
-        self.pd['grep']=self.pd['grep'].apply(self.trading_time_grep)
-        self.pd=self.pd[self.pd['grep']!=0]
+        self.clean_df=self.raw_pd.copy()
+        self.clean_df['grep']=self.clean_df.index
+        self.clean_df['grep']=self.clean_df['grep'].apply(self.trading_time_grep)
+        self.clean_df=self.clean_df[self.clean_df['grep']!=0]
     def time_select(self):
         #gen random selected k bars from total m bars
-        #k different from 
-        #   exchange    close auction
-        #   pre      tick or 1minbar or etc
+        #
         if self.mkt==1:
             self.bar_num=20*60*4+2
         elif self.mkt==2:
             self.bar_num=20*(60*4-3)+2
-        sortlist=list(range(len(self.df)))
+        sortlist=list(range(len(self.clean_df)))
         random.shuffle(sortlist)
         sortlist=sortlist[0:self.bar_num]
         sortlist.sort()
+        self.sortlist=sortlist
     def conbine_bar(self):
         #conbine bars with time select
         #get open from pre set info or determined from today ohlc
-        #keep inter bar return(between ori and fake) 
+        #keep inter bar delta(price)(between ori and fake)
+        #本质上就是选了n个相邻tick的价格变化 通过这n个价格变化关系重构价格序列
+        self.df=self.clean_df.copy()
+#        for price in ["BidPrice1","AskPrice1","LastPrice"]:
+#            price1=self.df[price]
+#            price2=price1[1:]
+#            price2.index=price1.index[0:-1]
+#            self.ret_list[price]=price2
+#
+#        self.df=self.clean_df.iloc[self.sortlist,:]
+#        self.ret_list=dict()
+        
         pass
     def hl_limit_adj(self):
         #get last settlement price
@@ -129,7 +140,8 @@ c.set_date_range([20180102,20180103])
 c.load_histroy()
 c.time_grep()
 c.time_select()
-x=c.pd
+c.conbine_bar()
+x=c.df
 '''
 生成nbbo
 空值就是,,

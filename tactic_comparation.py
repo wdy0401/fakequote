@@ -34,7 +34,7 @@ if len(dnuni>0):
 def print_rank(dpara,f):
     if len(dpara>0):
         order=dict(zip(dpara.index,dpara['rank']))
-        for rank_value in sorted(order.values(),reverse=True):
+        for rank_value in set(sorted(order.values(),reverse=True)):
             for i in order.keys():#这个循环解决了重复rank_value的问题
                 if order[i]==rank_value:
                     f.write(",".join([str(x) for x in [print_rank.ranking,i,round(order[i],4),*list(d.loc[i])]])+"\n")
