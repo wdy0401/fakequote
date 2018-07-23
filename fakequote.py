@@ -7,9 +7,12 @@ Created on Tue Jul 10 09:42:05 2018
 
 
 import pandas as pd
+import numpy as np
 import pathlib
 import random
-
+from datetime import datetime
+import matplotlib.pyplot as plt
+import functools
 
 '''
 按时间段进行价格处理
@@ -36,13 +39,22 @@ import random
     np.random.shuffle(arr)
     arr
     
-    先把源数据粒度统一成需求精度
     
     成交量需要添加微幅波动
     集合竞价成交量也需要按添加微幅波动 以免可与日期对应
     如何将集合竞价数据统一成k线数据 
     
 '''
+def betimer(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kw):
+        btime=datetime.now()
+        ret=func(*args, **kw)
+        dift=datetime.now()-btime
+        print('%s %s' % (func.__name__ , dift))
+        return ret
+    return wrapper
+
 class stock(object):
     def __init__(self):
         pass
@@ -61,23 +73,35 @@ class stock(object):
             if not pathlib.Path(fname).is_file():
                 raise ValueError("File not exist "+fname)
         self.dates=dates
+    def set_pre_close(self,price):
+        self.pre_close=price
+    
+    @betimer    
     def load_histroy(self):
         pdlist=list()    
         for dt in self.dates:
             fname=self.gen_file_name(dt)
+
+            #fname="./1.csv"
+            #a=pd.read_csv(fname,parse_dates=True,encoding="GBK",index_col=0)
+            
             a=pd.read_csv(fname,parse_dates=True,encoding="GBK")
             a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])+','+str(a['UpdateMillisec'][x])) for x in range(len(a))]
+            
             pdlist.append(a)
-        self.raw_pd=pd.concat(pdlist)
-        self.raw_pd=self.raw_pd.drop_duplicates()
+        
+        self.raw_df=pd.concat(pdlist)
+        
+    @betimer
     def time_grep(self):        #omit open close auction
-        self.clean_df=self.raw_pd.copy()
+        self.clean_df=self.raw_df.copy()
         self.clean_df['grep']=self.clean_df.index
         self.clean_df['grep']=self.clean_df['grep'].apply(self.trading_time_grep)
-        self.clean_df=self.clean_df[self.clean_df['grep']!=0]
+        self.clean_df=self.clean_df[self.clean_df['grep']!=0]    
+        self.clean_df=self.clean_df.drop_duplicates(subset='grep')
+    @betimer
     def time_select(self):
         #gen random selected k bars from total m bars
-        #
         if self.mkt==1:
             self.bar_num=20*60*4+2
         elif self.mkt==2:
@@ -87,23 +111,59 @@ class stock(object):
         sortlist=sortlist[0:self.bar_num]
         sortlist.sort()
         self.sortlist=sortlist
+    @betimer
     def conbine_bar(self):
         #conbine bars with time select
         #get open from pre set info or determined from today ohlc
         #keep inter bar delta(price)(between ori and fake)
         #本质上就是选了n个相邻tick的价格变化 通过这n个价格变化关系重构价格序列
         self.df=self.clean_df.copy()
-#        for price in ["BidPrice1","AskPrice1","LastPrice"]:
-#            price1=self.df[price]
-#            price2=price1[1:]
-#            price2.index=price1.index[0:-1]
-#            self.ret_list[price]=price2
-#
-#        self.df=self.clean_df.iloc[self.sortlist,:]
-#        self.ret_list=dict()
+
+        tail_tag="_next"
+        columns=['BidPrice1']
+        y=self.df.loc[:,['BidPrice1','AskPrice1','LastPrice']]
+        y0=self.df.loc[:,['BidPrice1']]
+        y0.columns=columns
+        y1=y0[1:]
+        y1.index=y0.index[0:-1]
+        y1.columns=[str(x)+tail_tag for x in columns]
+        y0.to_csv("y0.csv")
+        y1.to_csv("y1.csv")
+        y2=pd.concat([y0,y1],axis=1)
+        y3=y2.iloc[self.sortlist]
         
-        pass
+        ph=dict()
+        lastp=0
+        pdif=0
+        
+        ph['BidPrice1']=list()
+        for i,j in enumerate(y3.index):
+            if i==0:
+                ph['BidPrice1'].append(y3.loc[j,'BidPrice1'])
+            else:
+                ph['BidPrice1'].append(lastp+pdif)
+            pdif=y3.loc[j,'BidPrice1'+tail_tag]-y3.loc[j,'BidPrice1']
+            lastp=ph['BidPrice1'][-1]
+        ph['BidPrice1']=[round(x,2) for x in ph['BidPrice1']]
+        
+        ph["AskPrice1"]=list()
+        ph["LastPrice"]=list()
+        for i in range(len(ph['BidPrice1'])):
+            ph["AskPrice1"].append(round(ph["BidPrice1"][i]+y.iloc[i,1]-y.iloc[i,0],2))
+            ph["LastPrice"].append(round(ph["BidPrice1"][i]+y.iloc[i,2]-y.iloc[i,0],2))
+            
+        self.df=pd.DataFrame(ph,index=y3.index)
     def hl_limit_adj(self):
+        if hasattr(self,'pre_close'):
+            pc=self.pre_close
+            print(pc,1)
+        else:
+            tmp=self.df.iloc[0,:]
+#            pc=round((tmp['BidPrice1']*tmp['BidVolume1']+\
+#                     tmp['AskPrice1']*tmp['AskVolume1'])/(\
+#                        tmp['BidVolume1']+tmp['AskVolume1']),2)
+            pc=round(((tmp['BidPrice1']+tmp['AskPrice1'])/2),2)
+            print(pc,2)
         #get last settlement price
         #cut price which is higher or lower than limit
         pass
@@ -141,7 +201,25 @@ c.load_histroy()
 c.time_grep()
 c.time_select()
 c.conbine_bar()
-x=c.df
+c.hl_limit_adj()
+x=c.clean_df
+tmp=x[['BidPrice1','AskPrice1','BidVolume1','AskVolume1','TradingDay','UpdateTime','UpdateMillisec']]
+tmp.to_csv('1.csv')
+
+
+fname="./1.csv"
+a=pd.read_csv(fname,parse_dates=True,encoding="GBK",index_col=0)
+
+plt.plot(list(filter(lambda x:x>0,c.raw_df['BidPrice1'])))
+c.raw_df['BidPrice1'].to_csv('rawbid.csv')
+plt.savefig('rawbid.png', dpi=100)
+plt.close()
+
+
+plt.plot(list(c.df['BidPrice1']))
+c.df['BidPrice1'].to_csv('cleanbid.csv')
+plt.savefig('cleanbid.png', dpi=100)
+plt.close()
 '''
 生成nbbo
 空值就是,,
