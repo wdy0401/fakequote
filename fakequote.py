@@ -74,8 +74,7 @@ class stock(object):
                 raise ValueError("File not exist "+fname)
         self.dates=dates
     def set_pre_close(self,price):
-        self.pre_close=price
-    
+        self.pre_close=price    
     @betimer    
     def load_histroy(self):
         pdlist=list()    
@@ -87,11 +86,8 @@ class stock(object):
             
             a=pd.read_csv(fname,parse_dates=True,encoding="GBK")
             a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])+','+str(a['UpdateMillisec'][x])) for x in range(len(a))]
-            
             pdlist.append(a)
-        
         self.raw_df=pd.concat(pdlist)
-        
     @betimer
     def time_grep(self):        #omit open close auction
         self.clean_df=self.raw_df.copy()
@@ -111,6 +107,8 @@ class stock(object):
         sortlist=sortlist[0:self.bar_num]
         sortlist.sort()
         self.sortlist=sortlist
+        #self.sortlist=list(range(0,len(self.clean_df),2))
+        self.sortlist=list(filter(lambda x:int(int(x/20)%2)==1,range(len(self.clean_df))))
     @betimer
     def conbine_bar(self):
         #conbine bars with time select
@@ -118,7 +116,6 @@ class stock(object):
         #keep inter bar delta(price)(between ori and fake)
         #本质上就是选了n个相邻tick的价格变化 通过这n个价格变化关系重构价格序列
         self.df=self.clean_df.copy()
-
         tail_tag="_next"
         columns=['BidPrice1']
         y=self.df.loc[:,['BidPrice1','AskPrice1','LastPrice']]
@@ -127,8 +124,6 @@ class stock(object):
         y1=y0[1:]
         y1.index=y0.index[0:-1]
         y1.columns=[str(x)+tail_tag for x in columns]
-        y0.to_csv("y0.csv")
-        y1.to_csv("y1.csv")
         y2=pd.concat([y0,y1],axis=1)
         y3=y2.iloc[self.sortlist]
         
@@ -154,6 +149,7 @@ class stock(object):
             
         self.df=pd.DataFrame(ph,index=y3.index)
     def hl_limit_adj(self):
+        pc=0
         if hasattr(self,'pre_close'):
             pc=self.pre_close
             print(pc,1)
@@ -164,9 +160,15 @@ class stock(object):
 #                        tmp['BidVolume1']+tmp['AskVolume1']),2)
             pc=round(((tmp['BidPrice1']+tmp['AskPrice1'])/2),2)
             print(pc,2)
+        self.high_limit=round(pc*1.1,2)
+        self.low_limit=round(pc*0.9,2)
+        
+        #如果bid1>=high bid1=high b1v=sigma delete bid2-5
+        #如果bid2==high  b2v=sigma delete bid3-5
+
+        
         #get last settlement price
         #cut price which is higher or lower than limit
-        pass
     def volume_adj(self):
         #9:30-10:00 adj
         #14:50-15:00 adj
@@ -204,20 +206,17 @@ c.conbine_bar()
 c.hl_limit_adj()
 x=c.clean_df
 tmp=x[['BidPrice1','AskPrice1','BidVolume1','AskVolume1','TradingDay','UpdateTime','UpdateMillisec']]
-tmp.to_csv('1.csv')
 
 
-fname="./1.csv"
-a=pd.read_csv(fname,parse_dates=True,encoding="GBK",index_col=0)
 
-plt.plot(list(filter(lambda x:x>0,c.raw_df['BidPrice1'])))
-c.raw_df['BidPrice1'].to_csv('rawbid.csv')
+
+
+plt.plot(list(filter(lambda x:x>0,c.clean_df['BidPrice1'])))
 plt.savefig('rawbid.png', dpi=100)
 plt.close()
 
 
 plt.plot(list(c.df['BidPrice1']))
-c.df['BidPrice1'].to_csv('cleanbid.csv')
 plt.savefig('cleanbid.png', dpi=100)
 plt.close()
 '''
