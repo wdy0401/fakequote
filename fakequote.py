@@ -190,7 +190,6 @@ class stock(object):
             ts=self.df.loc[ind]
             for i in range(self.price_level):
                 pass
-                #这段需要重新思考下
 #                tp='BidPrice'+str(i+1)
 #                if ts[tp]==self.low_limit:
 #                    for j in range(i+1,self.price_level):
@@ -210,8 +209,14 @@ class stock(object):
 #                    pass
 
 
-        #如果bid1>=high bid1=high b1v=sigma delete bid2-5
-        #如果bid2==high  b2v=sigma delete bid3-5
+
+#        bid<min 舍去这个bid以及更低的bid
+#        bid in [min,max) 不处理
+#        bid>max
+#            存在价格为max的bid 将这个之后的bidsize都加到max的价格上
+#            不存在价格为max的bid 将这个及之后的价格都加总 放到新建价格为max的bid的价格上
+#
+
 
 
         #get last settlement price
@@ -220,11 +225,19 @@ class stock(object):
         #9:30-10:00 adj
         #14:50-15:00 adj
         #ratio=(the openclose bar)/(average of none openclose bar)
+#
+#        先算每个bar的标准量 也就是平均算下
+#        取得bar 记为A 对应的新bar 记为B
+#        result=B标准*(A/A标准)
+#
+#        标准计算方式 第一分钟平均算起点 最后一分钟平均算终点 总面积已知
+#        这就可以得到对应二次曲线 通过曲线确定每个点的值
         pass
     def auction_adj(self):
         #9:25 for sh sz
         #15:00 for sz
         #volume adjust by random(0.9,1.1)
+        #价格不变 数量微幅改变
         pass
     def gen_file_name(self,dt):
         return f"./data/md/{dt}/{self.ctr}_{self.mkt}.bak.csv"
