@@ -1,0 +1,60 @@
+<Entity name="MarketData" title="行情" description="说明证券的行情信息">
+		<Field name="TradingDay" type="Date" label="交易日" description="交易日" iskey="yes"/>
+		<Field name="SecurityID" type="SecurityID" label="证券代码" description="证券代码" iskey="yes"/>
+		<Field name="ExchangeID" type="ExchangeID" label="交易所代码" description="交易所代码，目前支持 SSE(上海证券交易所)和SZSE(深圳证券交易所)" iskey="yes"/>
+		<Field name="SecurityName" type="SecurityName" label="证券名称" description="证券名称"/>
+		<Field name="PreClosePrice" type="Price" label="前收盘价格" description="上一日收盘价"/>
+		<Field name="OpenPrice" type="Price" label="今开盘价格" description="今日开盘价"/>
+		<Field name="Volume" type="LongVolume" label="成交数量" description="该证券在当日的成交数量"/>
+		<Field name="Turnover" type="Money" label="今成交金额" description="该证券在当日的成交金额"/>
+		<Field name="TradingCount" type="LongVolume" label="成交笔数" description="该证券在当日的成交笔数"/>
+		<Field name="LastPrice" type="Price" label="最新价" description="当日该证券交易期间的最新成交价格"/>
+		<Field name="HighestPrice" type="Price" label="最高价" description="一定时间内该证券成交价中的最高成交价格"/>
+		<Field name="LowestPrice" type="Price" label="最低价" description="一定时间内该证券成交价中的最低成交价格"/>
+		<Field name="BidPrice1" type="Price" label="当前买入价格" description="该证券当前最优申买价格"/>
+		<Field name="AskPrice1" type="Price" label="当前卖出价格" description="该证券当前最优申卖价格"/>
+		<Field name="UpperLimitPrice" type="Price" label="涨停价格" description="涨停价格"/>
+		<Field name="LowerLimitPrice" type="Price" label="跌停价格" description="跌停价格"/>
+		<Field name="PERatio1" type="Ratio" label="市盈率1" description="指该证券当前的市盈率"/>
+		<Field name="PERatio2" type="Ratio" label="市盈率2" description="指该证券当前的市盈率"/>
+		<Field name="PriceUpDown1" type="Price" label="价格升跌1" description="最新价-前收盘价格"/>
+		<Field name="PriceUpDown2" type="Price" label="价格升跌2" description="最新价-上笔成交价格"/>
+		<Field name="OpenInterest" type="LargeVolume" label="持仓量" description="持仓量"/>
+		<Field name="BidVolume1" type="LongVolume" label="申买量一" description="该证券当前最优价位申请买入的数量"/>
+		<Field name="AskVolume1" type="LongVolume" label="申卖量一" description="该证券当前最优价位申请卖出的数量"/>
+		<Field name="BidPrice2" type="Price" label="申买价二" description="该证券当前第二优申买价格"/>
+		<Field name="BidVolume2" type="LongVolume" label="申买量二" description="该证券当前第二优价位申请买入的数量"/>
+		<Field name="AskPrice2" type="Price" label="申卖价二" description="该证券当前第二优申卖价格"/>
+		<Field name="AskVolume2" type="LongVolume" label="申卖量二" description="该证券当前第二优价位申请卖出的数量"/>
+		<Field name="BidPrice3" type="Price" label="申买价三" description="该证券当前第三优申买价格"/>
+		<Field name="BidVolume3" type="LongVolume" label="申买量三" description="该证券当前第三优价位申请买入的数量"/>
+		<Field name="AskPrice3" type="Price" label="申卖价三" description="该证券当前第三优申卖价格"/>
+		<Field name="AskVolume3" type="LongVolume" label="申卖量三" description="该证券当前第三优价位申请卖出的数量"/>
+		<Field name="BidPrice4" type="Price" label="申买价四" description="该证券当前第四优申买价格"/>
+		<Field name="BidVolume4" type="LongVolume" label="申买量四" description="该证券当前第四优价位申请买入的数量"/>
+		<Field name="AskPrice4" type="Price" label="申卖价四" description="该证券当前第四优申卖价格"/>
+		<Field name="AskVolume4" type="LongVolume" label="申卖量四" description="该证券当前第四优价位申请卖出的数量"/>
+		<Field name="BidPrice5" type="Price" label="申买价五" description="该证券当前第五优申买价格"/>
+		<Field name="BidVolume5" type="LongVolume" label="申买量五" description="该证券当前第五优价位申请买入的数量"/>
+		<Field name="AskPrice5" type="Price" label="申卖价五" description="该证券当前第五优申卖价格"/>
+		<Field name="AskVolume5" type="LongVolume" label="申卖量五" description="该证券当前第五优价位申请卖出的数量"/>
+		<Field name="UpdateTime" type="Time" label="最后修改时间" description="最后修改时间"/>
+		<Field name="UpdateMillisec" type="Millisec" label="最后修改毫秒" description="最后修改毫秒"/>
+		<Field name="ClosePrice" type="Price" label="今收盘价" description="今收盘价"/>
+		<Field name="MDSecurityStat" type="MDSecurityStat" label="行情产品实时状态" description="行情产品实时状态"/>
+		<Field name="HWFlag" type="Bool" label="是否警示标志,0否1是" description="是否警示标志,0否1是"/>
+	</Entity>
+	
+	<EnumChar typename="MDSecurityStat" label="行情产品实时状态" prefix="MSST">
+			<enum name="PreOpen" value="0" label="开盘前"/>
+			<enum name="CallAuction" value="1" label="集合竞价"/>
+			<enum name="Continous" value="2" label="连续交易"/>
+			<enum name="Pause" value="3" label="休市"/>
+			<enum name="Suspend" value="4" label="停牌"/>
+			<enum name="LongSuspend" value="5" label="长期停牌"/>
+			<enum name="UndulationInt" value="6" label="波动性中断"/>
+			<enum name="CircuitBreak" value="7" label="熔断可恢复"/>
+			<enum name="CircuitBreakU" value="8" label="熔断不可恢复"/>
+			<enum name="Close" value="9" label="闭市"/>
+			<enum name="Other" value="a" label="其它"/>
+		</EnumChar>
