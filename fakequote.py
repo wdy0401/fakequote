@@ -12,8 +12,7 @@ import pathlib
 import random
 from datetime import datetime
 import matplotlib.pyplot as plt
-import functools
-from functools import reduce
+from functools import reduce,wraps
 
 '''
 按时间段进行价格处理
@@ -47,7 +46,7 @@ from functools import reduce
 
 '''
 def betimer(func):
-    @functools.wraps(func)
+    @wraps(func)
     def wrapper(*args, **kw):
         btime=datetime.now()
         ret=func(*args, **kw)
@@ -187,9 +186,10 @@ class stock(object):
             print(pc,2)
         self.high_limit=round(pc*1.1,2)
         self.low_limit=round(pc*0.9,2)
-        for ind in self.dt.index:
+        for ind in self.df.index:
             ts=self.df.loc[ind]
             for i in range(self.price_level):
+                pass
                 #这段需要重新思考下
 #                tp='BidPrice'+str(i+1)
 #                if ts[tp]==self.low_limit:
@@ -246,6 +246,7 @@ c=stock()
 c.set_today("20180601")
 c.set_ctr("600000")
 c.set_date_range([20180102,20180103])
+c.set_price_level(5)
 c.load_histroy()
 c.time_grep()
 c.time_select()
