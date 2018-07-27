@@ -161,6 +161,7 @@ class stock(object):
                         ph[price].append(round(ph["BidPrice1"][i]+y.iloc[i,item_dict_r[price]]-y.iloc[i,0],2))
         self.ph=ph
         self.df=pd.DataFrame(ph,index=y3.index)
+    @betimer
     def timestamp_adj(self):
         #convert index to 930-1500
         #14:50-15:00 adj
@@ -172,6 +173,7 @@ class stock(object):
             list_afternoon=[i*pd.Timedelta('3s')+pd.Timestamp(str(self.today)+" 13:00:00") for i in range(20*60*2+1-3*20)]
         self.time_list=list_morning+list_afternoon
         self.df.index=self.time_list
+    @betimer
     def hl_limit_adj(self):
         pc=0
         if hasattr(self,'pre_close'):
@@ -185,42 +187,83 @@ class stock(object):
             #pc=round(((tmp['BidPrice1']+tmp['AskPrice1'])/2),2)
             print(pc,2)
         self.high_limit=round(pc*1.1,2)
+        self.high_limit=12.7
         self.low_limit=round(pc*0.9,2)
         for ind in self.df.index:
-            ts=self.df.loc[ind]
-            for i in range(self.price_level):
-                pass
-#                tp='BidPrice'+str(i+1)
-#                if ts[tp]==self.low_limit:
-#                    for j in range(i+1,self.price_level):
-#                        self.df.loc[ind,'BidVolume'+str(i+1)]+=self.df.loc[ind,'BidVolume'+str(j+1)]
-#                        self.df.loc[ind,'BidPrice'+str(i+1)]=0
-#                if ts[tp]>self.high_limit:
-#                    for j in range(i+1,self.price_level):
-#                        self.df.loc[ind,'BidVolume'+str(i+1)]+=self.df.loc[ind,'BidVolume'+str(j+1)]
-#                        self.df.loc[ind,'BidPrice'+str(i+1)]=0
-#
-#
-#                if "BidPrice" in tp:
-#                    pass
-#                elif "AskPrice" in tp:
-#                    pass
-#                elif "LastPrice" in tp:
-#                    pass
+            #bid part
+            needfix=0
+            for i in range(self.price_level):#对每个价位做调整
+                bp=self.df.loc[ind,'BidPrice'+str(i+1)]
+                if bp<self.low_limit:#小于跌停板的买价 全部删除
+                    for j in range(i,self.price_level):
+                        self.df.loc[ind,'BidPrice'+str(j+1)]=0
+                        self.df.loc[ind,'BidVolume'+str(j+1)]=0
+                    break
+                elif bp>self.high_limit:#大于涨停板的买价 需要保留量的信息
+                    if i<self.price_level-1:#可以往下放
+                        if self.df.loc[ind,'BidPrice'+str(i+2)]>=self.high_limit:#下面接得住
+                            needfix+=1
+                            self.df.loc[ind,'BidVolume'+str(i+2)]+=self.df.loc[ind,'BidVolume'+str(i+1)]
+                            self.df.loc[ind,'BidPrice'+str(i+1)]=0
+                            self.df.loc[ind,'BidVolume'+str(i+1)]=0
+                        else:#下面接不住 就地变成涨停板
+                            self.df.loc[ind,'BidPrice'+str(i+1)]=self.high_limit
+                    else:#无法往下放 就地变成涨停板
+                            self.df.loc[ind,'BidPrice'+str(i+1)]=self.high_limit
+            #针对可能出现的有level2没有level1的情况 重新对bid进行赋值
+            if needfix>0:
+                for i in range(self.price_level-needfix):#对每个价位做调整
+                    self.df.loc[ind,'BidPrice'+str(1+i)]=self.df.loc[ind,'BidPrice'+str(i+1+needfix)]
+                    self.df.loc[ind,'BidVolume'+str(1+i)]=self.df.loc[ind,'BidVolume'+str(i+1+needfix)]
+                for i in range(needfix):#删除不需要价位
+                    self.df.loc[ind,'BidPrice'+str(self.price_level-i)]=0
+                    self.df.loc[ind,'BidVolume'+str(self.price_level-i)]=0
 
 
-
+            #ask part
+            needfix=0
+            for i in range(self.price_level):#对每个价位做调整
+                ap=self.df.loc[ind,'AskPrice'+str(i+1)]
+                if ap>self.high_limit:#大于涨停板的卖价 全部删除
+                    for j in range(i,self.price_level):
+                        self.df.loc[ind,'AskPrice'+str(j+1)]=0
+                        self.df.loc[ind,'AskVolume'+str(j+1)]=0
+                    break
+                elif ap<self.low_limit:#小于跌停板的卖价 需要保留量的信息
+                    if i<self.price_level-1:#可以往下放
+                        if self.df.loc[ind,'AskPrice'+str(i+2)]<=self.low_limit:#下面接得住
+                            needfix+=1
+                            self.df.loc[ind,'AskVolume'+str(i+2)]+=self.df.loc[ind,'AskVolume'+str(i+1)]
+                            self.df.loc[ind,'AskPrice'+str(i+1)]=0
+                            self.df.loc[ind,'AskVolume'+str(i+1)]=0
+                        else:#下面接不住 就地变成跌停板
+                            self.df.loc[ind,'AskPrice'+str(i+1)]=self.low_limit
+                    else:#无法往下放 就地变成涨停板
+                            self.df.loc[ind,'AskPrice'+str(i+1)]=self.low_limit
+            #针对可能出现的有level2没有level1的情况 重新对ask进行赋值
+            if needfix>0:
+                for i in range(self.price_level-needfix):#对每个价位做调整
+                    self.df.loc[ind,'AskPrice'+str(1+i)]=self.df.loc[ind,'AskPrice'+str(i+1+needfix)]
+                    self.df.loc[ind,'AskVolume'+str(1+i)]=self.df.loc[ind,'AskVolume'+str(i+1+needfix)]
+                for i in range(needfix):#删除不需要价位
+                    self.df.loc[ind,'AskPrice'+str(self.price_level-i)]=0
+                    self.df.loc[ind,'AskVolume'+str(self.price_level-i)]=0
 #        bid<min 舍去这个bid以及更低的bid
 #        bid in [min,max) 不处理
-#        bid>max
-#            存在价格为max的bid 将这个之后的bidsize都加到max的价格上
-#            不存在价格为max的bid 将这个及之后的价格都加总 放到新建价格为max的bid的价格上
+#        bid in [max,++)
+#            将这个之前的bidsize都加到max的价格上
+#                   由于顺序问题  取前面的操作无法实现只能通过这种方式进行
+#                   下一个存在？
+#                    存在
+#                        大于等于high？
+#                            量加到下一档  价格删除
+#                        小于high
+#                            本档价格变成high 量不变
+#                    不存在
+#                        本档价格变成high 量不变
 #
-
-
-
-        #get last settlement price
-        #cut price which is higher or lower than limit
+#            不存在价格为max的bid 将这个及之后的价格都加总 放到新建价格为max的bid的价格上
+    @betimer
     def volume_adj(self):
         #9:30-10:00 adj
         #14:50-15:00 adj
@@ -233,6 +276,7 @@ class stock(object):
 #        标准计算方式 第一分钟平均算起点 最后一分钟平均算终点 总面积已知
 #        这就可以得到对应二次曲线 通过曲线确定每个点的值
         pass
+    @betimer
     def auction_adj(self):
         #9:25 for sh sz
         #15:00 for sz
@@ -265,23 +309,25 @@ c.time_grep()
 c.time_select()
 c.conbine_bar()
 c.timestamp_adj()
+c.df.to_csv("before_hl.csv")
 c.hl_limit_adj()
-x=c.clean_df
+c.df.to_csv("after_hl.csv")
+#x=c.clean_df
 xx=c.df
-tmp=x[['BidPrice1','AskPrice1','BidVolume1','AskVolume1','TradingDay','UpdateTime','UpdateMillisec']]
+#tmp=x[['BidPrice1','AskPrice1','BidVolume1','AskVolume1','TradingDay','UpdateTime','UpdateMillisec']]
 
 
 
 
-
-plt.plot(list(filter(lambda x:x>0,c.clean_df['BidPrice1'])))
-plt.savefig('rawbid.png', dpi=100)
-plt.close()
-
-
-plt.plot(list(c.df['BidPrice1']))
-plt.savefig('cleanbid.png', dpi=100)
-plt.close()
+#
+#plt.plot(list(filter(lambda x:x>0,c.clean_df['BidPrice1'])))
+#plt.savefig('rawbid.png', dpi=100)
+#plt.close()
+#
+#
+#plt.plot(list(c.df['BidPrice1']))
+#plt.savefig('cleanbid.png', dpi=100)
+#plt.close()
 '''
 生成nbbo
 空值就是,,
