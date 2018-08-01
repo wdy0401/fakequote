@@ -161,6 +161,7 @@ class stock(object):
                         ph[price].append(round(ph["BidPrice1"][i]+y.iloc[i,item_dict_r[price]]-y.iloc[i,0],2))
         self.ph=ph
         self.df=pd.DataFrame(ph,index=y3.index)
+        self.df['ori_index']=self.df.index
     @betimer
     def timestamp_adj(self):
         #convert index to 930-1500
@@ -265,12 +266,31 @@ class stock(object):
 #            不存在价格为max的bid 将这个及之后的价格都加总 放到新建价格为max的bid的价格上
     @betimer
     def volume_adj(self):
+        self.uni_f()
+        f=lambda x:x
+        volume=[f(x) for x in self.df.index]
+        self.df['volume']=volume
+    def va(self,tm):
+        ori_dt=tm
+        post_tm=tm
+        return tm.volume*self.f_dict[0](post_tm)/self.f_dict[ori_dt](tm)
+        pass
+    def uni_f(self):
+        self.f_dict=dict()
+        for dt in self.dates:
+            f=lambda x:x
+            self.f_dict[dt]=f
+        self.f_dict[0]=f
+
+
+        pass
         #n=一共几天
         #对于每天 and 这几天合起来
             #开盘处理
-                #对于符合条件的bar 
-                #这种条件有三个 第一分钟 最后一分钟 全部时长 
+                #对于符合条件的bar
+                #这种条件有三个 第一分钟 最后一分钟 全部时长
                 #计算这个参数 也就是平均的量 sum(bar total volume)/sum(bar total number)
+                    #计算方式
                 #对于全部时长 算好后需要乘以之后的bar数 开盘(60/3)*(10:00-9:30) 也就是20*30
                 #这样我们就得到了f(11) f(20*(30-1)+11) F(20*30) F为f的原函数
                 #通过f f F 我们可以解出f的表达式 f=axx+bx+c 前面就是利用三个点来确定一条二次曲线
@@ -279,16 +299,18 @@ class stock(object):
                 #对于所有盘中数据取平均值
             #收盘处理
                 #仅有深交所处理 同开盘处理
-        
-        #对于全部这几天的计算结果让我们有了一个基准 
+        #对于全部这几天的计算结果让我们有了一个基准
 
-        #对于每个bar的数据 
-            #找到其对应的原始数据的位置 
-            #计算出其对于当天的基准偏离比例 
-            #在将这个比例乘到全部天的基准上 
+        #获取特定时间段的bar切片
+        #=xx[(xx.index>pd.Timestamp("20180601 08:59:59"))*(xx.index<pd.Timestamp("20180601 09:59:59"))]
+
+        #对于每个bar的数据
+            #找到其对应的原始数据的位置
+            #计算出其对于当天的基准偏离比例
+            #在将这个比例乘到全部天的基准上
             #这就得到了新的量的数据
-        
-        
+
+
 
 
 
@@ -299,9 +321,9 @@ class stock(object):
         #价格
             #原始的今开盘集合竞价*(经过价格调整的昨收盘/原始的昨收盘)
         #数量
-            #就是第一天的集合竞价数量*(1+0.2*(rand-0.5)) 
+            #就是第一天的集合竞价数量*(1+0.2*(rand-0.5))
             #微幅改变数量以免透露是哪天的信息
-        
+
         #收盘集合竞价数据同样处理 昨收盘变成14:27的收盘数据
         pass
     def gen_file_name(self,dt):
