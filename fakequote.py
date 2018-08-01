@@ -57,6 +57,8 @@ def betimer(func):
 
 class stock(object):
     def __init__(self):
+        self.t_delta=pd.Timedelta('0 days 00:00:03')
+
         pass
     def set_today(self,date):
         self.today=date
@@ -267,23 +269,30 @@ class stock(object):
     @betimer
     def volume_adj(self):
         self.uni_f()
-        f=lambda x:x
-        volume=[f(x) for x in self.df.index]
+        volume=[self.va(x) for x in self.df.index]
         self.df['volume']=volume
-    def va(self,tm):
-        ori_dt=tm
-        post_tm=tm
-        return tm.volume*self.f_dict[0](post_tm)/self.f_dict[ori_dt](tm)
-        pass
+    def va(self,tm):#这个tm是post tm
+        barpost=self.tm_barnum(tm)
+        barpre=self.tm_barnum(self.df.loc[tm,'ori_index'])
+        ori_dt=tm.day
+        return tm.volume*self.f_dict[0](barpost)/self.f_dict[ori_dt](barpre)
+
+    ########################################################
     def uni_f(self):
         self.f_dict=dict()
         for dt in self.dates:
+            #输入是pd.Timestamp  输出是对应的标准量
             f=lambda x:x
+            #先确定是第几个bar 然后 根据公式得到标准量
             self.f_dict[dt]=f
         self.f_dict[0]=f
+    def tm_barnum(self,tm):
+        if tm <=1130 :
+            return (tm-930)/self.t_delta
+        else:
+            return 12345+(tm-1300)/self.t_delta
+    ########################################################
 
-
-        pass
         #n=一共几天
         #对于每天 and 这几天合起来
             #开盘处理
