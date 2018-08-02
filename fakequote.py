@@ -14,6 +14,10 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 from functools import reduce,wraps
 
+import matplotlib.pyplot as plt
+from sympy import *
+from sympy.abc import a,b,c
+
 '''
 按时间段进行价格处理
 处理后进行拼接
@@ -281,16 +285,50 @@ class stock(object):
     def uni_f(self):
         self.f_dict=dict()
         for dt in self.dates:
-            #输入是pd.Timestamp  输出是对应的标准量
-            f=lambda x:x
+            #open auction
+            x1=11
+            x2=20*(30-1)+11
+            x3=20*30+1
+
+            p=100/20
+            q=20/20
+            r=1500
+            #输入是第几根bar  输出是对应的标准量
+            [a1,a2,a3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
             #先确定是第几个bar 然后 根据公式得到标准量
-            self.f_dict[dt]=f
+
+            if self.mkt==1:
+                x1=20*60*4-20*15+11
+                x2=20*60*4-20*15 +20*(15-1)+11
+                x3=20*15+1
+            if self.mkt==2:
+                x1=20*60*4-20*15+11
+                x2=20*60*4-20*15 +20*(12-1)+11
+                x3=20*12+1
+
+            p=100/20
+            q=20/20
+            r=1500
+            [b1,b2,b3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
+
+            c=100000
+            self.f_dict[dt]=lambda x : self.vf(a1,a2,a3,b1,b2,b3,c,x)
+
         self.f_dict[0]=f
+    ########################################################
     def tm_barnum(self,tm):
-        if tm <=1130 :
-            return (tm-930)/self.t_delta
-        else:
-            return 12345+(tm-1300)/self.t_delta
+        re=(tm-pd.Timestamp(tm.date())- pd.Timedelta('0 days 09:30:00'))/self.t_delta
+        if re>2400:
+            re=re-2400
+        return re
+    def vf(self,a1,a2,a3,b1,b2,b3,c,x):
+        if x<=20*30+1:#开盘
+            return a1*x*x+a2*x+a3
+        elif x>20*60*4-20*15:#收盘
+            return b1*x*x+b2*x+b3
+        else:#盘中
+            return c
+
     ########################################################
 
         #n=一共几天
