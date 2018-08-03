@@ -128,6 +128,7 @@ class stock(object):
         columns=['BidPrice1']
         add=lambda x,y:x+y
         self.item_list=reduce(add,[[str(t)+str(s+1) for t in reduce(add,[[i+j for i in ["Bid",'Ask']] for j in ["Price",'Volume']])] for s in range(self.price_level)]);
+        self.item_list.extend(["Volume","Turnover","LastPrice"])
         item_list=self.item_list
         item_dict=dict(enumerate(item_list))
         item_dict_r= {v:k for k,v in item_dict.items()}
@@ -159,12 +160,18 @@ class stock(object):
                 continue
             else:
                 ph[price]=list()
-                if "Volume" in price:
-                    for i in range(len(ph['BidPrice1'])):
-                        ph[price].append(y.iloc[i,item_dict_r[price]])
-                else:
+                if "Price" in price:
                     for i in range(len(ph['BidPrice1'])):
                         ph[price].append(round(ph["BidPrice1"][i]+y.iloc[i,item_dict_r[price]]-y.iloc[i,0],2))
+                else:
+                    for i in range(len(ph['BidPrice1'])):
+                        ph[price].append(y.iloc[i,item_dict_r[price]])
+        for i in ['Volume','Turnover']:
+            z=list()
+            x=ph[i]
+            z.append(x[0])
+            z.extend([x[j]-x[j-1] for j in range(1,len(x))])
+            ph[i]=z
         self.ph=ph
         self.df=pd.DataFrame(ph,index=y3.index)
         self.df['ori_index']=self.df.index
@@ -255,6 +262,15 @@ class stock(object):
                 for i in range(needfix):#删除不需要价位
                     self.df.loc[ind,'AskPrice'+str(self.price_level-i)]=0
                     self.df.loc[ind,'AskVolume'+str(self.price_level-i)]=0
+
+            #Last price
+            lp=self.df.loc[ind,'LastPrice']
+            if lp>self.high_limit:#大于涨停板的卖价 全部删除
+                self.df.loc[ind,'LastPrice']=self.high_limit
+            elif lp<self.low_limit:
+                self.df.loc[ind,'LastPrice']=self.low_limit
+
+
 #        bid<min 舍去这个bid以及更低的bid
 #        bid in [min,max) 不处理
 #        bid in [max,++)
@@ -274,50 +290,77 @@ class stock(object):
     def volume_adj(self):
         self.uni_f()
         volume=[self.va(x) for x in self.df.index]
-        self.df['volume']=volume
+        self.df['Volume']=volume
     def va(self,tm):#这个tm是post tm
         barpost=self.tm_barnum(tm)
         barpre=self.tm_barnum(self.df.loc[tm,'ori_index'])
-        ori_dt=tm.day
-        return tm.volume*self.f_dict[0](barpost)/self.f_dict[ori_dt](barpre)
+        ori_dt=int(self.df.loc[tm,'ori_index'].strftime("%Y%m%d"))
+        return self.df.loc[tm,"Volume"]*self.f_dict[0](barpost)/self.f_dict[ori_dt](barpre)
 
     ########################################################
     def uni_f(self):
         self.f_dict=dict()
+        bar_ind={"open":[
+                        11,
+                        20*(30-1)+11,
+                        20*30+1],
+                'close_1':[
+                        20*60*4-20*15+11,
+                        20*60*4-20*15 +20*(15-1)+11,
+                        20*15+1],
+                'close_2':[
+                        20*60*4-20*15+11,
+                        20*60*4-20*15 +20*(12-1)+11,
+                        20*12+1]
+                }
+        x_total=[0 for i in range(8)]
         for dt in self.dates:
-            #open auction
-            x1=11
-            x2=20*(30-1)+11
-            x3=20*30+1
+            #open
+            [x1,x2,x3]=bar_ind["open"]
 
-            p=100/20
-            q=20/20
-            r=1500
+            idx_first=(self.df['ori_index']>=pd.Timestamp("20180103 09:30:00" ))&(self.df['ori_index']<=pd.Timestamp("20180103 09:31:00" ))
+            idx_last=(self.df['ori_index']>=pd.Timestamp("20180103 09:59:00" ))&(self.df['ori_index']<=pd.Timestamp("20180103 10:00:00" ))
+            idx_all=(self.df['ori_index']>=pd.Timestamp("20180103 09:30:00" ))&(self.df['ori_index']<=pd.Timestamp("20180103 10:00:00" ))
+
+            p=self.df[idx_first]['Volume'].sum()/20;x_total[1]+=p
+            q=self.df[idx_last]['Volume'].sum()/20;x_total[2]+=q
+            r=self.df[idx_all]['Volume'].sum();x_total[3]+=r
             #输入是第几根bar  输出是对应的标准量
             [a1,a2,a3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
             #先确定是第几个bar 然后 根据公式得到标准量
 
+            #close
             if self.mkt==1:
-                x1=20*60*4-20*15+11
-                x2=20*60*4-20*15 +20*(15-1)+11
-                x3=20*15+1
+                [x1,x2,x3]=bar_ind["close_1"]
+                idx_first=(self.df['ori_index']>=pd.Timestamp("20180103 14:45:00" ))&(self.df['ori_index']<=pd.Timestamp("20180103 14:46:00" ))
+                idx_last=(self.df['ori_index']>=pd.Timestamp("20180103 14:59:00" ))&(self.df['ori_index']<=pd.Timestamp("20180103 15:00:00" ))
+                idx_all=(self.df['ori_index']>=pd.Timestamp("20180103 14:45:00" ))&(self.df['ori_index']<=pd.Timestamp("20180103 15:00:00" ))
             if self.mkt==2:
-                x1=20*60*4-20*15+11
-                x2=20*60*4-20*15 +20*(12-1)+11
-                x3=20*12+1
+                [x1,x2,x3]=bar_ind["close_2"]
+                idx_first=(self.df['ori_index']>=pd.Timestamp("20180103 14:45:00" ))&(self.df['ori_index']<=pd.Timestamp("20180103 14:46:00" ))
+                idx_last=(self.df['ori_index']>=pd.Timestamp("20180103 14:56:00" ))&(self.df['ori_index']<=pd.Timestamp("20180103 15:00:00" ))
+                idx_all=(self.df['ori_index']>=pd.Timestamp("20180103 14:45:00" ))&(self.df['ori_index']<=pd.Timestamp("20180103 15:00:00" ))
 
-            p=100/20
-            q=20/20
-            r=1500
+            p=self.df[idx_first]['Volume'].sum()/20;x_total[4]+=p
+            q=self.df[idx_last]['Volume'].sum()/20;x_total[5]+=q
+            r=self.df[idx_all]['Volume'].sum();x_total[6]+=r
             [b1,b2,b3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
 
-            c=100000
-            self.f_dict[dt]=lambda x : self.vf(a1,a2,a3,b1,b2,b3,c,x)
+            idx_all=(self.df['ori_index']>=pd.Timestamp("20180103 10:00:00" ))&(self.df['ori_index']<=pd.Timestamp("20180103 14:45:00" ))
+            cc=self.df[idx_all]['Volume'].sum()/((4*60-15-30)*20);x_total[7]+=cc
+            self.f_dict[dt]=lambda x : self.vf(a1,a2,a3,b1,b2,b3,cc,x)
 
-        self.f_dict[0]=f
+        x_total=[x_total[i]/len(self.dates) for i in range(len(x_total))]
+        [x1,x2,x3]=[x_total[i] for i in range(1,4)]
+        [a1,a2,a3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
+        [x1,x2,x3]=[x_total[i] for i in range(4,7)]
+        [b1,b2,b3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
+        cc=x_total[7]
+        self.f_dict[0]=lambda x: self.vf(a1,a2,a3,b1,b2,b3,cc,x)
+
     ########################################################
     def tm_barnum(self,tm):
-        re=(tm-pd.Timestamp(tm.date())- pd.Timedelta('0 days 09:30:00'))/self.t_delta
+        re=int((tm-pd.Timestamp(tm.date())- pd.Timedelta('0 days 09:30:00'))/self.t_delta)
         if re>2400:
             re=re-2400
         return re
@@ -349,7 +392,7 @@ class stock(object):
         #对于全部这几天的计算结果让我们有了一个基准
 
         #获取特定时间段的bar切片
-        #=xx[(xx.index>pd.Timestamp("20180601 08:59:59"))*(xx.index<pd.Timestamp("20180601 09:59:59"))]
+        #=self.df[(self.df.index>pd.Timestamp("20180601 08:59:59"))*(self.df.index<pd.Timestamp("20180601 09:59:59"))]
 
         #对于每个bar的数据
             #找到其对应的原始数据的位置
@@ -389,21 +432,19 @@ class stock(object):
             return x
         else:
             return 0
-c=stock()
-c.set_today("20180601")
-c.set_ctr("600000")
-c.set_date_range([20180102,20180103])
-c.set_price_level(5)
-c.load_histroy()
-c.time_grep()
-c.time_select()
-c.conbine_bar()
-c.timestamp_adj()
-c.df.to_csv("before_hl.csv")
-c.hl_limit_adj()
-c.df.to_csv("after_hl.csv")
-#x=c.clean_df
-xx=c.df
+zz=stock()
+zz.set_today("20180601")
+zz.set_ctr("600000")
+zz.set_date_range([20180102,20180103])
+zz.set_price_level(5)
+zz.load_histroy()
+zz.time_grep()
+zz.time_select()
+zz.conbine_bar()
+zz.timestamp_adj()
+#zz.hl_limit_adj()
+zz.volume_adj()
+#x=zz.clean_df
 #tmp=x[['BidPrice1','AskPrice1','BidVolume1','AskVolume1','TradingDay','UpdateTime','UpdateMillisec']]
 
 
