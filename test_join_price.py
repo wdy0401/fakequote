@@ -7,7 +7,7 @@ Created on Fri Jul 20 14:43:40 2018
 import pandas as pd
 tail_tag="_next"
 columns=['Bid']
-y=x.loc[x.index[0:20],['BidPrice1','AskPrice1']]
+y=x.loc[x.index[0:20],['BidPrice1','AskPrice1','LastPrice']]
 y0=x.loc[x.index[0:20],['BidPrice1']]
 y0.columns=columns
 y1=y0[1:]
@@ -33,8 +33,10 @@ for i,j in enumerate(y3.index):
 ph['Bid']=[round(x,2) for x in ph['Bid']]
 
 ph["Ask"]=list()
+ph["LastPrice"]=list()
 for i in range(len(ph['Bid'])):
     ph["Ask"].append(round(ph["Bid"][i]+y.iloc[i,1]-y.iloc[i,0],2))
+    ph["LastPrice"].append(round(ph["Bid"][i]+y.iloc[i,2]-y.iloc[i,0],2))
     
 z=pd.DataFrame(ph,index=y3.index)
 #以bid为标准  if ask<bid ask=bid+preask-prebid
