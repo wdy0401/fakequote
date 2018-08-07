@@ -339,6 +339,7 @@ class stock(object):
             #输入是第几根bar  输出是对应的标准量
             [a1,a2,a3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
             #先确定是第几个bar 然后 根据公式得到标准量
+            o_mean=q/x3
             print([dt,p,q,r,a1,a2,a3])
 
             #close
@@ -360,7 +361,8 @@ class stock(object):
 
             idx_all=(self.clean_df['grep']>=pd.Timestamp(str(dt)+" 10:00:00" ))&(self.clean_df['grep']<=pd.Timestamp(str(dt)+" 14:45:00" ))
             cc=self.clean_df[idx_all]['Volume'].sum()/((4*60-15-30)*20);x_total[7]+=cc
-            self.f_dict[dt]=lambda x : self.vf(a1,a2,a3,b1,b2,b3,cc,x)
+            c_mean=q/x3
+            self.f_dict[dt]=lambda x: self.vf(a1,a2,a3,b1,b2,b3,cc,o_mean,c_mean,x)
             print([dt,p,q,r,b1,b2,b3,cc])
 
         x_total=[x_total[i]/len(self.dates) for i in range(len(x_total))]
@@ -368,6 +370,7 @@ class stock(object):
         [p,q,r]=[x_total[i] for i in range(1,4)]
         [x1,x2,x3]=bar_ind["open"]
         [a1,a2,a3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
+        o_mean=q/x3
 
         [p,q,r]=[x_total[i] for i in range(4,7)]
         if self.mkt==1:
@@ -376,7 +379,8 @@ class stock(object):
             [x1,x2,x3]=bar_ind["close_2"]
         [b1,b2,b3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
         cc=x_total[7]
-        self.f_dict[0]=lambda x: self.vf(a1,a2,a3,b1,b2,b3,cc,x)
+        c_mean=q/3
+        self.f_dict[0]=lambda x: self.vf(a1,a2,a3,b1,b2,b3,cc,o_mean,c_mean,x)
         print([dt,a1,a2,a3,b1,b2,b3,cc])
 
     ########################################################
@@ -385,11 +389,19 @@ class stock(object):
         if re>20*60*20:
             re=re-20*60*1.5
         return re
-    def vf(self,a1,a2,a3,b1,b2,b3,c,x):
+    def vf(self,a1,a2,a3,b1,b2,b3,c,o_mean,c_mean,x):#对于开盘收盘 因为可能存在2次曲线到达负值的情形 所以设定了最低限制 mean/10
         if x<=20*30+1:#开盘
-            return a1*x*x+a2*x+a3
+            re=a1*x*x+a2*x+a3
+            if re>o_mean/10:
+                return re
+            else:
+                return o_mean/10
         elif x>20*60*4-20*15:#收盘
-            return b1*x*x+b2*x+b3
+            re=b1*x*x+b2*x+b3
+            if re>c_mean/10:
+                return re
+            else:
+                return c_mean/10
         else:#盘中
             return c
 
@@ -424,12 +436,12 @@ class stock(object):
     @betimer
     def auction_adj(self):
         #价格
-            #原始的今开盘集合竞价*(经过价格调整的昨收盘/原始的昨收盘)
+            #(经过价格调整的昨收盘*(原始的今开盘集合竞价/原始的昨收盘)
         #数量
             #就是第一天的集合竞价数量*(1+0.2*(rand-0.5))
             #微幅改变数量以免透露是哪天的信息
 
-        #收盘集合竞价数据同样处理 昨收盘变成14:27的收盘数据
+        #收盘集合竞价数据同样处理 昨收盘变成14:57的收盘数据
         pass
     def gen_file_name(self,dt):
         return f"./data/md/{dt}/{self.ctr}_{self.mkt}.bak.csv"
@@ -459,7 +471,7 @@ zz.conbine_bar()
 zz.timestamp_adj()
 #zz.hl_limit_adj()
 zz.volume_adj()
-zz.df.to_csv("2.csv")
+zz.df.to_csv("3.csv")
 xx=zz.df
 #x=zz.clean_df
 #tmp=x[['BidPrice1','AskPrice1','BidVolume1','AskVolume1','TradingDay','UpdateTime','UpdateMillisec']]
