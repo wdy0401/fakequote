@@ -5,18 +5,24 @@ Created on Tue Jul 10 09:42:05 2018
 @author: admin
 """
 
+#script utils
+from functools import reduce,wraps
+import sys,types,pathlib
 
+#data utils
 import pandas as pd
 import numpy as np
-import pathlib
 import random
 from datetime import datetime
 import matplotlib.pyplot as plt
-from functools import reduce,wraps
 
-import matplotlib.pyplot as plt
+#solve function
 from sympy import *
 from sympy.abc import a,b,c
+
+#day info transfer
+import json
+prterr=lambda x : sys.stderr.write(x)
 
 '''
 按时间段进行价格处理
@@ -62,8 +68,15 @@ def betimer(func):
 class stock(object):
     def __init__(self):
         self.t_delta=pd.Timedelta('0 days 00:00:03')
-
         pass
+    def load_his(self,fn):
+        with open(fn) as f:
+            self.his=json.load(f)
+        for k,v in self.his.items():
+            if hasattr(self,k) and type(getattr(self,k))==types.MethodType:
+                prterr(f"ERROR:load_his {k}\n")
+            else:
+                setattr(self,k,v)
     def set_today(self,date):
         self.today=date
     def set_ctr(self,ctr):
@@ -460,23 +473,20 @@ class stock(object):
         else:
             return 0
 zz=stock()
-zz.set_today("20180601")
-zz.set_ctr("600000")
-zz.set_date_range([20180102,20180103])
-zz.set_price_level(5)
-zz.load_histroy()
-zz.time_grep()
-zz.time_select()
-zz.conbine_bar()
-zz.timestamp_adj()
+#zz.set_today("20180601")
+#zz.set_ctr("600000")
+#zz.set_date_range([20180102,20180103])
+#zz.set_price_level(5)
+#zz.load_histroy()
+#zz.time_grep()
+#zz.time_select()
+#zz.conbine_bar()
+#zz.timestamp_adj()
 #zz.hl_limit_adj()
-zz.volume_adj()
-zz.df.to_csv("3.csv")
-xx=zz.df
-#x=zz.clean_df
-#tmp=x[['BidPrice1','AskPrice1','BidVolume1','AskVolume1','TradingDay','UpdateTime','UpdateMillisec']]
-
-
+#zz.volume_adj()
+#zz.df.to_csv("3.csv")
+#xx=zz.df
+zz.load_his("./a.json")
 
 
 #
@@ -503,19 +513,19 @@ xx=zz.df
         读取并赋值
     else:
         使用本地信息创建默认值
-''''
+'''
 
-''''
+'''
 除了当日行情 还需要保存一个简要信息  这个简要信息被下一天的程序读取 完成隔日收益保证
 当日信息包含内容
     各个合约的 真假 收盘价
     其他信息
-''''
+'''
 
-''''
+'''
 驱动的信息
 包含内容
     产生老日期与新日期的映射关系
     创建目录等运维事项
     逐日运行程序
-''''
+'''
