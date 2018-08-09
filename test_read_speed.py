@@ -57,6 +57,9 @@ F(i)=a*i*i*i/3 + b*i*i/2 +c*i
 
 '''
 
+
+
+'''
 import matplotlib.pyplot as plt
 from sympy import *
 from sympy.abc import a,b,c
@@ -71,4 +74,9 @@ f=lambda x:a1*x*x+b1*x+c1
 [a2,b2,c2]=solve([a*p1*p1+b*p1+c-p,a*p2*p2+b*p2+c-q,a*p3*p3*p3/3+b*p3*p3/2+c*p3-r],[a,b,c]).values()
 f=lambda x:a2*x*x+b2*x+c2
 plt.plot([f(i) for i in range(600)])
+'''
+
+import json
+json.load("C:\code\project\dubi\para.json")
+
 

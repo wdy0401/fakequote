@@ -1,0 +1,17 @@
+{
+  "TA_p": {
+    "TA": {
+      "lvg": 0.1,
+      "posadj": 1,
+      "prcadj": 1
+    }
+  },
+
+  "load_his": {
+    "TA": {
+      "lvg": 0.1,
+      "posadj": 1,
+      "prcadj": 1
+    }
+  }
+}

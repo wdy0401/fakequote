@@ -64,12 +64,35 @@ def betimer(func):
         print('%s %s' % (func.__name__ , dift))
         return ret
     return wrapper
+def cmd_parse(cmd):
+    re=dict()
+    last_key=False
+    for i,j in enumerate(cmd):
+        print(i,j)
+        if i==0:
+            next
+        else:
+            if j[0]=='-':
+                while(j[0]=='-'):
+                    j=j[1:]
+                re[j]=True
+                last_key=j
+            else:
+                if last_key!=False:
+                    re[last_key]=j
+                else:
+                    re[j]=True
+                last_key=False
+    return re
+
+
+
 
 class stock(object):
     def __init__(self):
         self.t_delta=pd.Timedelta('0 days 00:00:03')
-        pass
-    def load_his(self,fn):
+        self.json=dict()
+    def pre(self,fn):
         with open(fn) as f:
             self.his=json.load(f)
         for k,v in self.his.items():
@@ -472,6 +495,10 @@ class stock(object):
             return x
         else:
             return 0
+    def post(self):
+        with open(f"./{self.date}.json","w") as f:
+            json.dump(self.json,f)
+        pass
 zz=stock()
 #zz.set_today("20180601")
 #zz.set_ctr("600000")
@@ -485,6 +512,7 @@ zz=stock()
 #zz.hl_limit_adj()
 #zz.volume_adj()
 #zz.df.to_csv("3.csv")
+zz.post()
 #xx=zz.df
 zz.load_his("./a.json")
 
