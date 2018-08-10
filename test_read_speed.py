@@ -76,7 +76,32 @@ f=lambda x:a2*x*x+b2*x+c2
 plt.plot([f(i) for i in range(600)])
 '''
 
+'''
 import json
 json.load("C:\code\project\dubi\para.json")
-
-
+'''
+import sys
+import random
+def date_map(odts,ndts):
+    num_map=dict()
+    olen=len(odts)
+    nlen=len(ndts)
+    if (olen/nlen)<2:
+        sys.exit(f"ERROR:date_map not enough dates\n")
+    maxsize=2+int(olen/nlen)
+    for i in range(nlen):
+        num_map[i]=2
+    remain=olen-nlen*2
+    i=0
+    while(i<remain):
+        j=random.randrange(remain)
+        if num_map[j]<maxsize:
+            i+=1
+            num_map[j]+=1
+    dt_map=dict()
+    j=0
+    for i in range(nlen):
+        dt_map[i]=odts[j:j+num_map[i]]
+        j+=num_map[i]
+    return dt_map
+print(date_map(list(range(12)),list(range(5))))
