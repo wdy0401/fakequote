@@ -24,37 +24,7 @@ from sympy.abc import a,b,c
 import json
 prterr=lambda x : sys.stderr.write(x)
 
-'''
-按时间段进行价格处理
-处理后进行拼接
-拼接注意事项:
-    在有删除操作时 保证拼接处的收益率
-    价格不超过涨跌停
-    成交量符合U型曲线
 
-输入:
-    待生成日
-    源数据日序列
-    源数据颗粒度需不大于需求精度
-输出:
-    按指定精度给出的行情数据
-    源数据颗粒度需不大于指定精度
-
-细节:
-    先看old超出new部分有多少
-   T 超出部分的量通过删掉1/2 压缩1/2进行处理 可以调节压缩删除比例
-    删除压缩区别在于  删除是整段数据 也就是数个bar 多个bar合成一个bar
-    现在均采取删除的方式  也就是m个k线里面取n个
-    arr = np.arange(10)
-    np.random.shuffle(arr)
-    arr
-
-
-    成交量需要添加微幅波动
-    集合竞价成交量也需要按添加微幅波动 以免可与日期对应
-    如何将集合竞价数据统一成k线数据
-
-'''
 def betimer(func):
     @wraps(func)
     def wrapper(*args, **kw):
@@ -84,10 +54,28 @@ def cmd_parse(cmd):
                     re[j]=True
                 last_key=False
     return re
-
-
-
-
+def date_map(odts,ndts):
+    num_map=dict()
+    olen=len(odts)
+    nlen=len(ndts)
+    if (olen/nlen)<2:
+        sys.exit(f"ERROR:date_map not enough dates\n")
+    maxsize=2+int(olen/nlen)
+    for i in range(nlen):
+        num_map[i]=2
+    remain=olen-nlen*2
+    i=0
+    while(i<remain):
+        j=random.randrange(remain)
+        if num_map[j]<maxsize:
+            i+=1
+            num_map[j]+=1
+    dt_map=dict()
+    j=0
+    for i in range(nlen):
+        dt_map[i]=odts[j:j+num_map[i]]
+        j+=num_map[i]
+    return dt_map
 class stock(object):
     def __init__(self):
         self.t_delta=pd.Timedelta('0 days 00:00:03')
@@ -155,10 +143,6 @@ class stock(object):
         self.sortlist=self.sortlist[0:self.bar_num]
     @betimer
     def conbine_bar(self):
-        #conbine bars with time select
-        #get open from pre set info or determined from today ohlc
-        #keep inter bar delta(price)(between ori and fake)
-        #本质上就是选了n个相邻tick的价格变化 通过这n个价格变化关系重构价格序列
         self.df=self.clean_df.copy()
         tail_tag="_next"
         columns=['BidPrice1']
@@ -315,25 +299,6 @@ class stock(object):
                 self.df.loc[ind,'LastPrice']=self.high_limit
             elif lp<self.low_limit:
                 self.df.loc[ind,'LastPrice']=self.low_limit
-
-
-#        bid<min 舍去这个bid以及更低的bid
-#        bid in [min,max) 不处理
-#        bid in [max,++)
-#            将这个之前的bidsize都加到max的价格上
-#                   由于顺序问题  取前面的操作无法实现只能通过这种方式进行
-#                   下一个存在？
-#                    存在
-#                        大于等于high？
-#                            量加到下一档  价格删除
-#                        小于high
-#                            本档价格变成high 量不变
-#                    不存在
-#                        本档价格变成high 量不变
-#
-#            不存在价格为max的bid 将这个及之后的价格都加总 放到新建价格为max的bid的价格上
-
-                ###########################################################################
     @betimer
     def volume_adj(self):
         self.uni_f()
@@ -364,7 +329,6 @@ class stock(object):
         for dt in self.dates:
             #open
             [x1,x2,x3]=bar_ind["open"]
-
             idx_first=(self.clean_df['grep']>=pd.Timestamp(str(dt)+" 09:30:00" ))&(self.clean_df['grep']<=pd.Timestamp(str(dt)+" 09:31:00" ))
             idx_last=(self.clean_df['grep']>=pd.Timestamp(str(dt)+" 09:59:00" ))&(self.clean_df['grep']<=pd.Timestamp(str(dt)+" 10:00:00" ))
             idx_all=(self.clean_df['grep']>=pd.Timestamp(str(dt)+" 09:30:00" ))&(self.clean_df['grep']<=pd.Timestamp(str(dt)+" 10:00:00" ))
@@ -419,7 +383,6 @@ class stock(object):
         self.f_dict[0]=lambda x: self.vf(a1,a2,a3,b1,b2,b3,cc,o_mean,c_mean,x)
         print([dt,a1,a2,a3,b1,b2,b3,cc])
 
-    ########################################################
     def tm_barnum(self,tm):
         re=int((tm-pd.Timestamp(tm.date())- pd.Timedelta('0 days 09:30:00'))/self.t_delta)
         if re>20*60*20:
@@ -440,35 +403,6 @@ class stock(object):
                 return c_mean/10
         else:#盘中
             return c
-
-    ########################################################
-
-        #n=一共几天
-        #对于每天 and 这几天合起来
-            #开盘处理
-                #对于符合条件的bar
-                #这种条件有三个 第一分钟 最后一分钟 全部时长
-                #计算这个参数 也就是平均的量 sum(bar total volume)/sum(bar total number)
-                    #计算方式
-                #对于全部时长 算好后需要乘以之后的bar数 开盘(60/3)*(10:00-9:30) 也就是20*30
-                #这样我们就得到了f(11) f(20*(30-1)+11) F(20*30) F为f的原函数
-                #通过f f F 我们可以解出f的表达式 f=axx+bx+c 前面就是利用三个点来确定一条二次曲线
-                #这样我们就得到了每天的开盘基准
-            #盘中处理
-                #对于所有盘中数据取平均值
-            #收盘处理
-                #仅有深交所处理 同开盘处理
-        #对于全部这几天的计算结果让我们有了一个基准
-
-        #获取特定时间段的bar切片
-        #=self.df[(self.df.index>pd.Timestamp("20180601 08:59:59"))*(self.df.index<pd.Timestamp("20180601 09:59:59"))]
-
-        #对于每个bar的数据
-            #找到其对应的原始数据的位置
-            #计算出其对于当天的基准偏离比例
-            #在将这个比例乘到全部天的基准上
-            #这就得到了新的量的数据
-
     @betimer
     def auction_adj(self):
         #价格
@@ -496,11 +430,12 @@ class stock(object):
         else:
             return 0
     def post(self):
-        with open(f"./{self.date}.json","w") as f:
+        with open(f"./{self.today}.json","w") as f:
             json.dump(self.json,f)
         pass
 zz=stock()
-#zz.set_today("20180601")
+zz.set_today("20180601")
+zz.pre("./a.json")
 #zz.set_ctr("600000")
 #zz.set_date_range([20180102,20180103])
 #zz.set_price_level(5)
@@ -514,46 +449,4 @@ zz=stock()
 #zz.df.to_csv("3.csv")
 zz.post()
 #xx=zz.df
-zz.load_his("./a.json")
 
-
-#
-#plt.plot(list(filter(lambda x:x>0,c.clean_df['BidPrice1'])))
-#plt.savefig('rawbid.png', dpi=100)
-#plt.close()
-#
-#
-#plt.plot(list(c.df['BidPrice1']))
-#plt.savefig('cleanbid.png', dpi=100)
-#plt.close()
-'''
-生成nbbo
-空值就是,,
-
-存在的问题
-明显异于其他档位的size是个很奇怪的存在  本来是在一个价位的 fake后会在不同价位跳动
-'''
-
-
-''''
-添加读取前日信息的函数
-    if存在：
-        读取并赋值
-    else:
-        使用本地信息创建默认值
-'''
-
-'''
-除了当日行情 还需要保存一个简要信息  这个简要信息被下一天的程序读取 完成隔日收益保证
-当日信息包含内容
-    各个合约的 真假 收盘价
-    其他信息
-'''
-
-'''
-驱动的信息
-包含内容
-    产生老日期与新日期的映射关系
-    创建目录等运维事项
-    逐日运行程序
-'''
