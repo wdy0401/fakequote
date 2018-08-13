@@ -82,7 +82,8 @@ json.load("C:\code\project\dubi\para.json")
 '''
 import sys
 import random
-def date_map(odts,ndts):
+def date_map(odts,ndts,random_seed=None):
+    random.seed(random_seed)
     num_map=dict()
     olen=len(odts)
     nlen=len(ndts)
@@ -104,4 +105,4 @@ def date_map(odts,ndts):
         dt_map[i]=odts[j:j+num_map[i]]
         j+=num_map[i]
     return dt_map
-print(date_map(list(range(12)),list(range(5))))
+print(date_map(list(range(12)),list(range(5)),1))

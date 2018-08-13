@@ -54,7 +54,8 @@ def cmd_parse(cmd):
                     re[j]=True
                 last_key=False
     return re
-def date_map(odts,ndts):
+def date_map(odts,ndts,random_seed=None):
+    random.seed(random_seed)
     num_map=dict()
     olen=len(odts)
     nlen=len(ndts)
