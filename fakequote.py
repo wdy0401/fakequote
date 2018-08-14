@@ -320,11 +320,11 @@ class stock(object):
         barpre=self.tm_barnum(self.df.loc[tm,'grep'])
         ori_dt=int(self.df.loc[tm,'grep'].strftime("%Y%m%d"))
         re=self.df.loc[tm,"Volume_dif"]*self.f_dict[0](barpost)/self.f_dict[ori_dt](barpre)
-        if re<0:
-            print(tm,barpost,barpre,ori_dt,re)
-            print(self.df.loc[tm,"Volume_dif"])
-            print(self.f_dict[0](barpost))
-            print(self.f_dict[ori_dt](barpre))
+#        if re<10000:
+#            print(tm,barpost,barpre,ori_dt,re)
+#            print(self.df.loc[tm,"Volume_dif"])
+#            print(self.f_dict[0](barpost))
+#            print(self.f_dict[ori_dt](barpre))
         return re
     def uni_f(self):
         self.f_dict=dict()
