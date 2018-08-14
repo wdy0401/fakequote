@@ -6,6 +6,8 @@ Created on Tue Jul 10 09:42:05 2018
 """
 
 #script utils
+import warnings
+warnings.filterwarnings("ignore")
 from functools import reduce,wraps
 import sys,types,pathlib
 
@@ -22,6 +24,9 @@ from sympy.abc import a,b,c
 
 #day info transfer
 import json
+sys.path.append('c:/code/python')
+from wutils import trade_date,cmd_parse
+
 prterr=lambda x : sys.stderr.write(x)
 
 
@@ -34,26 +39,6 @@ def betimer(func):
         print('%s %s' % (func.__name__ , dift))
         return ret
     return wrapper
-def cmd_parse(cmd):
-    re=dict()
-    last_key=False
-    for i,j in enumerate(cmd):
-        print(i,j)
-        if i==0:
-            next
-        else:
-            if j[0]=='-':
-                while(j[0]=='-'):
-                    j=j[1:]
-                re[j]=True
-                last_key=j
-            else:
-                if last_key!=False:
-                    re[last_key]=j
-                else:
-                    re[j]=True
-                last_key=False
-    return re
 def date_map(odts,ndts,random_seed=None):
     random.seed(random_seed)
     num_map=dict()
@@ -67,14 +52,14 @@ def date_map(odts,ndts,random_seed=None):
     remain=olen-nlen*2
     i=0
     while(i<remain):
-        j=random.randrange(remain)
+        j=random.randrange(nlen)
         if num_map[j]<maxsize:
             i+=1
             num_map[j]+=1
     dt_map=dict()
     j=0
     for i in range(nlen):
-        dt_map[i]=odts[j:j+num_map[i]]
+        dt_map[ndts[i]]=odts[j:j+num_map[i]]
         j+=num_map[i]
     return dt_map
 class stock(object):
@@ -126,6 +111,20 @@ class stock(object):
         self.clean_df['grep']=self.clean_df['grep'].apply(self.trading_time_grep)
         self.clean_df=self.clean_df[self.clean_df['grep']!=0]
         self.clean_df=self.clean_df.drop_duplicates(subset='grep')
+        i='Volume'
+        last_dt=0
+        last_v=0
+        lst=list()
+        for j in self.clean_df.index:
+            dt=int(self.clean_df.loc[j,"grep"].strftime("%Y%m%d"))
+            v=self.clean_df.loc[j,i]
+            if dt==last_dt:
+                lst.append(v-last_v)
+            else:
+                lst.append(v)
+            last_dt=dt
+            last_v=v
+        self.clean_df['Volume_dif']=lst
     @betimer
     def time_select(self):
         #gen random selected k bars from total m bars
@@ -149,10 +148,10 @@ class stock(object):
         columns=['BidPrice1']
         add=lambda x,y:x+y
         self.item_list=reduce(add,[[str(t)+str(s+1) for t in reduce(add,[[i+j for i in ["Bid",'Ask']] for j in ["Price",'Volume']])] for s in range(self.price_level)]);
-        self.item_list.extend(["Volume","LastPrice","grep"])
+        self.item_list.extend(["Volume_dif","LastPrice","grep"])
         item_list=self.item_list
-        item_dict=dict(enumerate(item_list))
-        item_dict_r= {v:k for k,v in item_dict.items()}
+        #item_dict=dict(enumerate(item_list))
+        #item_dict_r= {v:k for k,v in item_dict.items()}
         y=self.df.loc[:,item_list]
         y0=self.df.loc[:,['BidPrice1']]
         y0.columns=columns
@@ -161,7 +160,11 @@ class stock(object):
         y1.columns=[str(x)+tail_tag for x in columns]
         y2=pd.concat([y0,y1],axis=1)
         y3=y2.iloc[self.sortlist]
-        self.y3=y3
+#        self.y=y
+#        self.y0=y0
+#        self.y1=y1
+#        self.y2=y2
+#        self.y3=y3
 
         ph=dict()
         lastp=0
@@ -184,27 +187,34 @@ class stock(object):
                 ph[price]=list()
                 if "Price" in price:
                     for i in range(len(ph['BidPrice1'])):
-                        ph[price].append(round(ph["BidPrice1"][i]+y.iloc[i,item_dict_r[price]]-y.iloc[i,0],2))
+                        j=y3.index[i]
+                        ph[price].append(round(ph["BidPrice1"][i]+y.loc[j,price]-y.loc[j,'BidPrice1'],2))
+#                        ph[price].append(round(ph["BidPrice1"][i]+y.iloc[i,item_dict_r[price]]-y.iloc[i,0],2))
                 else:
                     for i in range(len(ph['BidPrice1'])):
-                        ph[price].append(y.iloc[i,item_dict_r[price]])
+                        j=y3.index[i]
+                        ph[price].append(y.loc[j,price])
         self.ph=ph
         self.df=pd.DataFrame(ph,index=y3.index)
         #对于多天的volume处理方式
-        for i in ['Volume']:
-            last_dt=0
-            last_v=0
-            lst=list()
-            for j in self.df.index:
-                dt=int(self.df.loc[j,"grep"].strftime("%Y%m%d"))
-                v=self.df.loc[j,i]
-                if dt==last_dt:
-                    lst.append(v-last_v)
-                else:
-                    lst.append(v)
-                last_dt=dt
-                last_v=v
-            self.df[i]=lst
+#        for i in ['Volume']:
+#            last_dt=0
+#            last_v=0
+#            lst=list()
+#            for j in self.df.index:
+#                dt=int(self.df.loc[j,"grep"].strftime("%Y%m%d"))
+#                v=self.df.loc[j,i]
+#                re=0
+#                if dt==last_dt:
+#                    re=v-last_v
+#                else:
+#                    re=v
+#                lst.append(re)
+#                if re<0:
+#                    print("VO",v,last_v)
+#                last_dt=dt
+#                last_v=v
+#            self.df[i]=lst
 
     @betimer
     def timestamp_adj(self):
@@ -223,16 +233,16 @@ class stock(object):
         pc=0
         if hasattr(self,'pre_close'):
             pc=self.pre_close
-            print(pc,1)
+            #print(pc,1)
         else:
             tmp=self.df.iloc[0,:]
             pc=round((tmp['BidPrice1']*tmp['BidVolume1']+\
                      tmp['AskPrice1']*tmp['AskVolume1'])/(\
                         tmp['BidVolume1']+tmp['AskVolume1']),2)
             #pc=round(((tmp['BidPrice1']+tmp['AskPrice1'])/2),2)
-            print(pc,2)
+            #print(pc,2)
         self.high_limit=round(pc*1.1,2)
-        self.high_limit=12.7
+        #self.high_limit=12.7
         self.low_limit=round(pc*0.9,2)
         for ind in self.df.index:
             #bid part
@@ -303,14 +313,19 @@ class stock(object):
     @betimer
     def volume_adj(self):
         self.uni_f()
-        volume=[self.va(x) for x in self.df.index]
-        self.df['Volume']=volume
+        volume=[int(self.va(x)) for x in self.df.index]
+        self.df['Volume_dif']=volume
     def va(self,tm):#这个tm是post tm
         barpost=self.tm_barnum(tm)
         barpre=self.tm_barnum(self.df.loc[tm,'grep'])
         ori_dt=int(self.df.loc[tm,'grep'].strftime("%Y%m%d"))
-        return self.df.loc[tm,"Volume"]*self.f_dict[0](barpost)/self.f_dict[ori_dt](barpre)
-
+        re=self.df.loc[tm,"Volume_dif"]*self.f_dict[0](barpost)/self.f_dict[ori_dt](barpre)
+        if re<0:
+            print(tm,barpost,barpre,ori_dt,re)
+            print(self.df.loc[tm,"Volume_dif"])
+            print(self.f_dict[0](barpost))
+            print(self.f_dict[ori_dt](barpre))
+        return re
     def uni_f(self):
         self.f_dict=dict()
         bar_ind={"open":[
@@ -334,14 +349,14 @@ class stock(object):
             idx_last=(self.clean_df['grep']>=pd.Timestamp(str(dt)+" 09:59:00" ))&(self.clean_df['grep']<=pd.Timestamp(str(dt)+" 10:00:00" ))
             idx_all=(self.clean_df['grep']>=pd.Timestamp(str(dt)+" 09:30:00" ))&(self.clean_df['grep']<=pd.Timestamp(str(dt)+" 10:00:00" ))
 
-            p=self.clean_df[idx_first]['Volume'].sum()/20;x_total[1]+=p
-            q=self.clean_df[idx_last]['Volume'].sum()/20;x_total[2]+=q
-            r=self.clean_df[idx_all]['Volume'].sum();x_total[3]+=r
+            p=self.clean_df[idx_first]['Volume_dif'].sum()/20;x_total[1]+=p
+            q=self.clean_df[idx_last]['Volume_dif'].sum()/20;x_total[2]+=q
+            r=self.clean_df[idx_all]['Volume_dif'].sum();x_total[3]+=r
             #输入是第几根bar  输出是对应的标准量
             [a1,a2,a3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
             #先确定是第几个bar 然后 根据公式得到标准量
             o_mean=q/x3
-            print([dt,p,q,r,a1,a2,a3])
+            print([dt,'open',p,q,r,a1,a2,a3])
 
             #close
             if self.mkt==1:
@@ -355,16 +370,16 @@ class stock(object):
                 idx_last=(self.clean_df['grep']>=pd.Timestamp(str(dt)+" 14:56:00" ))&(self.clean_df['grep']<=pd.Timestamp(str(dt)+" 15:00:00" ))
                 idx_all=(self.clean_df['grep']>=pd.Timestamp(str(dt)+" 14:45:00" ))&(self.clean_df['grep']<=pd.Timestamp(str(dt)+" 15:00:00" ))
 
-            p=self.clean_df[idx_first]['Volume'].sum()/20;x_total[4]+=p
-            q=self.clean_df[idx_last]['Volume'].sum()/20;x_total[5]+=q
-            r=self.clean_df[idx_all]['Volume'].sum();x_total[6]+=r
+            p=self.clean_df[idx_first]['Volume_dif'].sum()/20;x_total[4]+=p
+            q=self.clean_df[idx_last]['Volume_dif'].sum()/20;x_total[5]+=q
+            r=self.clean_df[idx_all]['Volume_dif'].sum();x_total[6]+=r
             [b1,b2,b3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
 
             idx_all=(self.clean_df['grep']>=pd.Timestamp(str(dt)+" 10:00:00" ))&(self.clean_df['grep']<=pd.Timestamp(str(dt)+" 14:45:00" ))
-            cc=self.clean_df[idx_all]['Volume'].sum()/((4*60-15-30)*20);x_total[7]+=cc
+            cc=self.clean_df[idx_all]['Volume_dif'].sum()/((4*60-15-30)*20);x_total[7]+=cc
             c_mean=q/x3
             self.f_dict[dt]=lambda x: self.vf(a1,a2,a3,b1,b2,b3,cc,o_mean,c_mean,x)
-            print([dt,p,q,r,b1,b2,b3,cc])
+            print([dt,'close',p,q,r,b1,b2,b3,cc])
 
         x_total=[x_total[i]/len(self.dates) for i in range(len(x_total))]
 
@@ -382,13 +397,13 @@ class stock(object):
         cc=x_total[7]
         c_mean=q/3
         self.f_dict[0]=lambda x: self.vf(a1,a2,a3,b1,b2,b3,cc,o_mean,c_mean,x)
-        print([dt,a1,a2,a3,b1,b2,b3,cc])
+        print([dt,'total',a1,a2,a3,b1,b2,b3,cc])
 
     def tm_barnum(self,tm):
         re=int((tm-pd.Timestamp(tm.date())- pd.Timedelta('0 days 09:30:00'))/self.t_delta)
-        if re>20*60*20:
-            re=re-20*60*1.5
-        return re
+        if re>20*60*2:#早盘2小时
+            re=re-20*60*1.5#午休1.5小时
+        return int(re)
     def vf(self,a1,a2,a3,b1,b2,b3,c,o_mean,c_mean,x):#对于开盘收盘 因为可能存在2次曲线到达负值的情形 所以设定了最低限制 mean/10
         if x<=20*30+1:#开盘
             re=a1*x*x+a2*x+a3
@@ -430,6 +445,21 @@ class stock(object):
             return x
         else:
             return 0
+    def fix_volume(self):
+        tmp=self.df.copy()
+        tmp.pop('grep')
+        vo=tmp['Volume_dif']
+        lastv=0
+        v=list()
+        for i in range(len(vo)):
+            lastv+=vo[i]
+            v.append(lastv)
+        tmp['Volume']=v
+        tmp.pop("Volume_dif")
+        self.csv=tmp
+    def to_csv(self,name):
+        self.fix_volume()
+        self.csv.to_csv(name)
     def post(self):
         with open(f"./{self.today}.json","w") as f:
             json.dump(self.json,f)
@@ -437,17 +467,20 @@ class stock(object):
 zz=stock()
 zz.set_today("20180601")
 zz.pre("./a.json")
-#zz.set_ctr("600000")
-#zz.set_date_range([20180102,20180103])
-#zz.set_price_level(5)
-#zz.load_histroy()
-#zz.time_grep()
-#zz.time_select()
-#zz.conbine_bar()
-#zz.timestamp_adj()
-#zz.hl_limit_adj()
-#zz.volume_adj()
-#zz.df.to_csv("3.csv")
+zz.set_ctr("600000")
+zz.set_date_range([20180102,20180103])
+zz.set_price_level(5)
+zz.load_histroy()
+zz.time_grep()
+zz.time_select()
+
+zz.conbine_bar()
+kk=zz.df
+zz.timestamp_adj()
+zz.hl_limit_adj()
+zz.volume_adj()
+zz.to_csv("3.csv")
 zz.post()
-#xx=zz.df
+xx=zz.df
+xx.to_csv('df.csv')
 
