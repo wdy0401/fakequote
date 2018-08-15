@@ -9,7 +9,7 @@ Created on Tue Jul 10 09:42:05 2018
 import warnings
 warnings.filterwarnings("ignore")
 from functools import reduce,wraps
-import sys,types,pathlib
+import os,sys,types,pathlib
 
 #data utils
 import pandas as pd
@@ -17,6 +17,7 @@ import numpy as np
 import random
 from datetime import datetime
 import matplotlib.pyplot as plt
+import sqlite3
 
 #solve function
 from sympy import *
@@ -25,7 +26,6 @@ from sympy.abc import a,b,c
 #day info transfer
 import json
 sys.path.append('c:/code/python')
-from wutils import trade_date,cmd_parse
 
 prterr=lambda x : sys.stderr.write(x)
 
@@ -67,8 +67,13 @@ class stock(object):
         self.t_delta=pd.Timedelta('0 days 00:00:03')
         self.json=dict()
     def pre(self,fn):
-        with open(fn) as f:
-            self.his=json.load(f)
+        if type(fn)==type(str()):
+            with open(fn) as f:
+                self.his=json.load(f)
+        elif type(fn)==type(dict()):
+            self.his=fn
+        else:
+            return
         for k,v in self.his.items():
             if hasattr(self,k) and type(getattr(self,k))==types.MethodType:
                 prterr(f"ERROR:load_his {k}\n")
@@ -87,7 +92,7 @@ class stock(object):
         self.ctr=ctr
     def set_date_range(self,dates):
         for dt in dates:
-            fname=self.gen_file_name(dt)
+            fname=self.gen_old_file_name(dt)
             if not pathlib.Path(fname).is_file():
                 raise ValueError("File not exist "+fname)
         self.dates=dates
@@ -99,7 +104,7 @@ class stock(object):
     def load_histroy(self):
         pdlist=list()
         for dt in self.dates:
-            fname=self.gen_file_name(dt)
+            fname=self.gen_old_file_name(dt)
             a=pd.read_csv(fname,parse_dates=True,encoding="GBK")
             a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])+','+str(a['UpdateMillisec'][x])) for x in range(len(a))]
             pdlist.append(a)
@@ -196,26 +201,6 @@ class stock(object):
                         ph[price].append(y.loc[j,price])
         self.ph=ph
         self.df=pd.DataFrame(ph,index=y3.index)
-        #对于多天的volume处理方式
-#        for i in ['Volume']:
-#            last_dt=0
-#            last_v=0
-#            lst=list()
-#            for j in self.df.index:
-#                dt=int(self.df.loc[j,"grep"].strftime("%Y%m%d"))
-#                v=self.df.loc[j,i]
-#                re=0
-#                if dt==last_dt:
-#                    re=v-last_v
-#                else:
-#                    re=v
-#                lst.append(re)
-#                if re<0:
-#                    print("VO",v,last_v)
-#                last_dt=dt
-#                last_v=v
-#            self.df[i]=lst
-
     @betimer
     def timestamp_adj(self):
         #convert index to 930-1500
@@ -233,14 +218,14 @@ class stock(object):
         pc=0
         if hasattr(self,'pre_close'):
             pc=self.pre_close
-            #print(pc,1)
+            print(pc,1)
         else:
             tmp=self.df.iloc[0,:]
             pc=round((tmp['BidPrice1']*tmp['BidVolume1']+\
                      tmp['AskPrice1']*tmp['AskVolume1'])/(\
                         tmp['BidVolume1']+tmp['AskVolume1']),2)
             #pc=round(((tmp['BidPrice1']+tmp['AskPrice1'])/2),2)
-            #print(pc,2)
+            print(pc,2)
         self.high_limit=round(pc*1.1,2)
         #self.high_limit=12.7
         self.low_limit=round(pc*0.9,2)
@@ -273,8 +258,6 @@ class stock(object):
                 for i in range(needfix):#删除不需要价位
                     self.df.loc[ind,'BidPrice'+str(self.price_level-i)]=0
                     self.df.loc[ind,'BidVolume'+str(self.price_level-i)]=0
-
-
             #ask part
             needfix=0
             for i in range(self.price_level):#对每个价位做调整
@@ -429,7 +412,7 @@ class stock(object):
 
         #收盘集合竞价数据同样处理 昨收盘变成14:57的收盘数据
         pass
-    def gen_file_name(self,dt):
+    def gen_old_file_name(self,dt):
         return f"./data/md/{dt}/{self.ctr}_{self.mkt}.bak.csv"
     def trading_time_grep(self,x):
         if ((x.hour==9 and x.minute>29) \
@@ -457,30 +440,53 @@ class stock(object):
         tmp['Volume']=v
         tmp.pop("Volume_dif")
         self.csv=tmp
-    def to_csv(self,name):
+    def to_csv(self):
         self.fix_volume()
-        self.csv.to_csv(name)
+        self.csv.to_csv(f"./data/new/{self.today}/{self.ctr}.csv")
     def post(self):
-        with open(f"./{self.today}.json","w") as f:
-            json.dump(self.json,f)
-        pass
-zz=stock()
-zz.set_today("20180601")
-zz.pre("./a.json")
-zz.set_ctr("600000")
-zz.set_date_range([20180102,20180103])
-zz.set_price_level(5)
-zz.load_histroy()
-zz.time_grep()
-zz.time_select()
+        last_tm=self.csv.index[-1]
+        last_old_tm=self.df['grep'][-1]
+        self.json['LastPrice']=self.csv.loc[last_tm,'LastPrice']
+        self.json['old_LastPrice']=self.clean_df.loc[last_old_tm,'LastPrice']
+#        with open(f"./{self.today}.json","w") as f:
+#            json.dump(self.json,f)
+        dts=tuple([self.today,self.ctr,self.dates[0],self.dates[-1],self.json['LastPrice'],self.json['old_LastPrice']])
 
-zz.conbine_bar()
-kk=zz.df
-zz.timestamp_adj()
-zz.hl_limit_adj()
-zz.volume_adj()
-zz.to_csv("3.csv")
-zz.post()
-xx=zz.df
-xx.to_csv('df.csv')
+        fn=f"./info/{self.ctr}.db"
+        if not os.path.exists(fn):
+            self.conn=sqlite3.connect(fn)
+            self.cursor=self.conn.cursor()
+            self.cursor.execute('CREATE TABLE daily_price (\
+                                    date   INT,\
+                                    ctr    STRING,\
+                                    bdate  INT,\
+                                    edate  INT,\
+                                    close  DOUBLE,\
+                                    old_close DOUBLE,\
+                                    primary key (date,ctr,bdate))')
+            self.conn.commit()
+        else:
+            self.conn=sqlite3.connect(fn)
+            self.cursor=self.conn.cursor()
+        self.cursor.execute('insert or replace into daily_price (date,ctr,bdate,edate,close,old_close) values (?,?,?,?,?,?)', dts)
+        self.conn.commit()
+        self.conn.close()
+#zz=stock()
+#zz.set_today("20180601")
+#zz.pre("./a.json")
+#zz.set_ctr("600000")
+#zz.set_date_range([20180102,20180103])
+#zz.set_price_level(5)
+#zz.load_histroy()
+#zz.time_grep()
+#zz.time_select()
+#
+#zz.conbine_bar()
+#zz.timestamp_adj()
+#zz.hl_limit_adj()
+#zz.volume_adj()
+#zz.to_csv()
+#zz.post()
+#xx=zz.df
+#xx.to_csv('df.csv')
 

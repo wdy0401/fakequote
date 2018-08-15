@@ -12,20 +12,29 @@ from wutils import trade_date
 
 ods=trade_date.getbizds(20180101,20180629)
 nds=trade_date.getbizds(20200101,20200229)
-dtmap=date_map(ods,nds,10086)
+dtmap=date_map(ods,nds,100)
 syms=['600000']
 for sym in syms:
-    lastodt=0
+    pre_dict=dict()
+    pre_dict['last_odt']=0
+    pre_dict['pre_close']=0
+    pre_dict['pre_close_old']=0
     for dt in nds:
-        ndir=f"./data/fkndt/{dt}"
-        os.mkdir(ndir)
+        if dt>20200102:
+            break
+        ndir=f"./data/new/{dt}"
+        if not os.path.isdir(ndir):
+            os.mkdir(ndir)
         odts=dtmap[dt]
+
         zz=stock()
-        zz.set_today(dt)
-        zz.pre("./a.json")
+        zz.pre(1)#此处仅供站位 需要用含有pre close的dict代替之
         zz.set_ctr(sym)
-        zz.set_date_range(odts)
+        zz.set_today(str(dt))
+        zz.set_date_range(dtmap[dt])
         zz.set_price_level(5)
+        if pre_dict['last_odt']!=0:
+            zz.pre(pre_dict)
         zz.load_histroy()
         zz.time_grep()
         zz.time_select()
@@ -33,8 +42,9 @@ for sym in syms:
         zz.timestamp_adj()
         zz.hl_limit_adj()
         zz.volume_adj()
-        zz.to_csv(f"{ndir}/{sym}.csv")
+        zz.to_csv()
         zz.post()
-        lastodt=odts[-1]
-        print(lastodt)
-        break
+        pre_dict['last_odt']=odts[-1]
+        pre_dict['pre_close']=zz.json['LastPrice']
+        pre_dict['pre_close_old']=zz.json['old_LastPrice']
+        print(pre_dict)
