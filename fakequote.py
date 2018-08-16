@@ -27,16 +27,21 @@ from sympy.abc import a,b,c
 #day info transfer
 import json
 
+win=True
+import platform
+if 'windows' not in platform.platform().lower():
+    win=False
+
 prterr=lambda x : sys.stderr.write(x)
 
 
 def betimer(func):
     @wraps(func)
     def wrapper(*args, **kw):
-        btime=datetime.now()
+#        btime=datetime.now()
         ret=func(*args, **kw)
-        dift=datetime.now()-btime
-        print('%s %s' % (func.__name__ , dift))
+#        dift=datetime.now()-btime
+#        print('%s %s' % (func.__name__ , dift))
         return ret
     return wrapper
 def date_map(odts,ndts,random_seed=None):
@@ -189,10 +194,10 @@ class stock(object):
                     p=y3.loc[j,'BidPrice1']*self.pre_close/self.pre_close_old#转换为可比价格
                     p=round(p,2)
                     ph['BidPrice1'].append(p)
-                    print(self.today,"OPEN 1",p,y3.loc[j,'BidPrice1'],self.pre_close,self.pre_close_old)
+                    print(self.ctr,self.today,"OPEN 1",p,y3.loc[j,'BidPrice1'],self.pre_close,self.pre_close_old)
                 else:
                     ph['BidPrice1'].append(y3.loc[j,'BidPrice1'])
-                    print(self.today,"OPEN 2",y3.loc[j,'BidPrice1'])
+                    print(self.ctr,self.today,"OPEN 2",y3.loc[j,'BidPrice1'])
             else:
                 ph['BidPrice1'].append(lastp+pdif)
             pdif=y3.loc[j,'BidPrice1'+tail_tag]-y3.loc[j,'BidPrice1']
@@ -232,14 +237,14 @@ class stock(object):
         pc=0
         if hasattr(self,'pre_close'):
             pc=self.pre_close
-            print(pc,1)
+            print(self.ctr,self.today,pc,1)
         else:
             tmp=self.df.iloc[0,:]
             pc=round((tmp['BidPrice1']*tmp['BidVolume1']+\
                      tmp['AskPrice1']*tmp['AskVolume1'])/(\
                         tmp['BidVolume1']+tmp['AskVolume1']),2)
             #pc=round(((tmp['BidPrice1']+tmp['AskPrice1'])/2),2)
-            print(pc,2)
+            print(self.ctr,self.today,pc,2)
         self.high_limit=round(pc*1.1,2)
         #self.high_limit=12.7
         self.low_limit=round(pc*0.9,2)
@@ -353,7 +358,7 @@ class stock(object):
             [a1,a2,a3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
             #先确定是第几个bar 然后 根据公式得到标准量
             o_mean=q/x3
-            print([dt,'open',p,q,r,a1,a2,a3])
+            #print([dt,'open',p,q,r,a1,a2,a3])
 
             #close
             if self.mkt==1:
@@ -376,7 +381,7 @@ class stock(object):
             cc=self.clean_df[idx_all]['Volume_dif'].sum()/((4*60-15-30)*20);x_total[7]+=cc
             c_mean=q/x3
             self.f_dict[dt]=lambda x: self.vf(a1,a2,a3,b1,b2,b3,cc,o_mean,c_mean,x)
-            print([dt,'close',p,q,r,b1,b2,b3,cc])
+            #print([dt,'close',p,q,r,b1,b2,b3,cc])
 
         x_total=[x_total[i]/len(self.dates) for i in range(len(x_total))]
 
@@ -394,7 +399,7 @@ class stock(object):
         cc=x_total[7]
         c_mean=q/3
         self.f_dict[0]=lambda x: self.vf(a1,a2,a3,b1,b2,b3,cc,o_mean,c_mean,x)
-        print([dt,'total',a1,a2,a3,b1,b2,b3,cc])
+        #print([dt,'total',a1,a2,a3,b1,b2,b3,cc])
 
     def tm_barnum(self,tm):
         re=int((tm-pd.Timestamp(tm.date())- pd.Timedelta('0 days 09:30:00'))/self.t_delta)
@@ -428,7 +433,16 @@ class stock(object):
         pass
     def gen_old_file_name(self,dt):
         #return f"./data/md/{dt}/{self.ctr}_{self.mkt}.bak.csv"
-        return f"./data/old/{dt}.txt.gz"
+        if win:
+            return f"./data/old/{self.ctr}/{dt}.txt.gz"
+        else:
+            year=str(dt)[0:4]
+            mon=str(dt)[4:6]
+            day=str(dt)[6:]
+            if self.mkt==1:
+                return f"../THS/tick/stock_tick/{year}/{mon}/{day}/txt/SH{self.ctr}.txt.gz"
+            else:
+                return f"../THS/tick/stock_tick/{year}/{mon}/{day}/txt/SZ{self.ctr}.txt.gz"
     def trading_time_grep(self,x):
         if ((x.hour==9 and x.minute>29) \
             or (x.hour==10) \
@@ -436,7 +450,6 @@ class stock(object):
             or (x.hour==13) \
             or (self.mkt==1 and x.hour==14) \
             or (self.mkt==2 and x.hour==14 and x.minute<57) \
-            or (self.mkt==2 and x.hour==14 and x.minute==57 and x.second==0) \
 
             ):#open close auction(x.hour==9 and x.minute==25)  (x.hour==15 and x.minute==0)
 
@@ -457,7 +470,10 @@ class stock(object):
         self.csv=tmp
     def to_csv(self):
         self.fix_volume()
-        self.csv.to_csv(f"./data/new/{self.today}/{self.ctr}.csv",line_terminator="\n")
+        if win:
+            self.csv.to_csv(f"./data/new/{self.today}/{self.ctr}.csv",line_terminator="\n")
+        else:
+            self.csv.to_csv(f"../THS/fakequote/{self.today}/{self.ctr}.csv",line_terminator="\n")
     def post(self):
         last_tm=self.csv.index[-1]
         last_old_tm=self.df['grep'][-1]
