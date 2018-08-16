@@ -178,7 +178,14 @@ class stock(object):
         ph['BidPrice1']=list()
         for i,j in enumerate(y3.index):
             if i==0:
-                ph['BidPrice1'].append(y3.loc[j,'BidPrice1'])
+                if hasattr(self, 'pre_close'):
+                    p=y3.loc[j,'BidPrice1']*self.pre_close/self.pre_close_old#转换为可比价格
+                    p=round(p,2)
+                    ph['BidPrice1'].append(p)
+                    print(self.today,"OPEN 1",p,y3.loc[j,'BidPrice1'],self.pre_close,self.pre_close_old)
+                else:
+                    ph['BidPrice1'].append(y3.loc[j,'BidPrice1'])
+                    print(self.today,"OPEN 2",y3.loc[j,'BidPrice1'])
             else:
                 ph['BidPrice1'].append(lastp+pdif)
             pdif=y3.loc[j,'BidPrice1'+tail_tag]-y3.loc[j,'BidPrice1']
