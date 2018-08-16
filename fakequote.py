@@ -18,6 +18,7 @@ import random
 from datetime import datetime
 import matplotlib.pyplot as plt
 import sqlite3
+import gzip
 
 #solve function
 from sympy import *
@@ -104,8 +105,15 @@ class stock(object):
         pdlist=list()
         for dt in self.dates:
             fname=self.gen_old_file_name(dt)
-            a=pd.read_csv(fname,parse_dates=True,encoding="GBK")
-            a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])+','+str(a['UpdateMillisec'][x])) for x in range(len(a))]
+            if fname[-2:]=='gz':
+                with gzip.open(fname,mode='rt') as f:
+                    nms=["SecurityID","TradingDay","UpdateTime","PreClosePrice","OpenPrice","HighestPrice","LowestPrice","LastPrice","Volume","x1","x2","BidPrice1","BidVolume1","BidPrice2","BidVolume2","BidPrice3","BidVolume3","BidPrice4","BidVolume4","BidPrice5","BidVolume5","AskPrice1","AskVolume1","AskPrice2","AskVolume2","AskPrice3","AskVolume3","AskPrice4","AskVolume4","AskPrice5","AskVolume5","BidPrice6","BidVolume6","BidPrice7","BidVolume7","BidPrice8","BidVolume8","BidPrice9","BidVolume9","BidPrice10","BidVolume10","AskPrice6","AskVolume6","AskPrice7","AskVolume7","AskPrice8","AskVolume8","AskPrice9","AskVolume9","AskPrice10","AskVolume10","x3","x4","x5","x6"]
+                    a=pd.read_csv(f,parse_dates=True,names=nms)
+                    a.index=[pd.Timestamp(x) for x in a['TradingDay']+" "+a['UpdateTime']]
+
+            else:
+                a=pd.read_csv(fname,parse_dates=True,encoding="GBK")
+                a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])+','+str(a['UpdateMillisec'][x])) for x in range(len(a))]
             pdlist.append(a)
         self.raw_df=pd.concat(pdlist)
     @betimer
@@ -419,7 +427,8 @@ class stock(object):
         #收盘集合竞价数据同样处理 昨收盘变成14:57的收盘数据
         pass
     def gen_old_file_name(self,dt):
-        return f"./data/md/{dt}/{self.ctr}_{self.mkt}.bak.csv"
+        #return f"./data/md/{dt}/{self.ctr}_{self.mkt}.bak.csv"
+        return f"./data/old/{dt}.txt.gz"
     def trading_time_grep(self,x):
         if ((x.hour==9 and x.minute>29) \
             or (x.hour==10) \
@@ -448,7 +457,7 @@ class stock(object):
         self.csv=tmp
     def to_csv(self):
         self.fix_volume()
-        self.csv.to_csv(f"./data/new/{self.today}/{self.ctr}.csv")
+        self.csv.to_csv(f"./data/new/{self.today}/{self.ctr}.csv",line_terminator="\n")
     def post(self):
         last_tm=self.csv.index[-1]
         last_old_tm=self.df['grep'][-1]

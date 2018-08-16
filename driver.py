@@ -22,7 +22,7 @@ for sym in syms:
     pre_dict['pre_close']=0
     pre_dict['pre_close_old']=0
     for dt in nds:
-        if dt>20200102:
+        if dt>20200113:
             break
         ndir=f"./data/new/{dt}"
         if not os.path.isdir(ndir):
@@ -30,7 +30,6 @@ for sym in syms:
         odts=dtmap[dt]
 
         zz=stock()
-        zz.pre(1)#此处仅供站位 需要用含有pre close的dict代替之
         zz.set_ctr(sym)
         zz.set_today(str(dt))
         zz.set_date_range(dtmap[dt])
