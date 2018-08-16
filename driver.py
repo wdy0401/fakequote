@@ -6,8 +6,10 @@ Created on Tue Aug 14 14:23:17 2018
 """
 import os
 import sys
+import platform
 from fakequote import stock,date_map
-sys.path.append('c:/code/python')
+if 'windows' in platform.platform().lower():
+    sys.path.append('c:/code/python')
 from wutils import trade_date
 
 ods=trade_date.getbizds(20180101,20180629)

@@ -25,7 +25,6 @@ from sympy.abc import a,b,c
 
 #day info transfer
 import json
-sys.path.append('c:/code/python')
 
 prterr=lambda x : sys.stderr.write(x)
 
