@@ -11,9 +11,10 @@ import numpy as np
 win=True
 if 'windows' not in platform.platform().lower():
     win=False
+if win:
     sys.path.append('c:/code/python')
-from fakequote import stock,date_map
 from wutils import trade_date
+from fakequote import stock,date_map
 
 ods=trade_date.getbizds(20180101,20180629)
 nds=trade_date.getbizds(20200101,20200229)
@@ -22,7 +23,7 @@ ctrs=list()
 with open('./stock_list.txt') as f:
     for ctr in f.readlines():
         ctrs.append(ctr.strip())
-#ctrs=['000001']
+ctrs=['000006']
 for ctr in ctrs:
     try:
         pre_dict=dict()
@@ -61,3 +62,11 @@ for ctr in ctrs:
             print(zz.ctr,zz.today,pre_dict)
     except:
         pass
+
+
+'''
+raw_df=zz.raw_df
+df=zz.df
+clean_df=zz.clean_df
+#csv=zz.csv
+'''
