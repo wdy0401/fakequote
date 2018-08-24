@@ -122,7 +122,7 @@ class stock(object):
             pdlist.append(a)
         self.raw_df=pd.concat(pdlist)
     @betimer
-    def time_grep(self):        #omit open close auction
+    def time_grep(self):
         self.clean_df=self.raw_df.copy()
         self.clean_df['grep']=self.clean_df.index
         self.clean_df['grep']=self.clean_df['grep'].apply(self.trading_time_grep)
@@ -177,11 +177,11 @@ class stock(object):
         y1.columns=[str(x)+tail_tag for x in columns]
         y2=pd.concat([y0,y1],axis=1)
         y3=y2.iloc[self.sortlist]
-#        self.y=y
-#        self.y0=y0
-#        self.y1=y1
-#        self.y2=y2
-#        self.y3=y3
+        # self.y=y
+        # self.y0=y0
+        # self.y1=y1
+        # self.y2=y2
+        # self.y3=y3
 
         ph=dict()
         lastp=0
@@ -213,7 +213,6 @@ class stock(object):
                     for i in range(len(ph['BidPrice1'])):
                         j=y3.index[i]
                         ph[price].append(round(ph["BidPrice1"][i]+y.loc[j,price]-y.loc[j,'BidPrice1'],2))
-#                        ph[price].append(round(ph["BidPrice1"][i]+y.iloc[i,item_dict_r[price]]-y.iloc[i,0],2))
                 else:
                     for i in range(len(ph['BidPrice1'])):
                         j=y3.index[i]
@@ -322,14 +321,13 @@ class stock(object):
         barpre=self.tm_barnum(self.df.loc[tm,'grep'])
         ori_dt=int(self.df.loc[tm,'grep'].strftime("%Y%m%d"))
         re=self.df.loc[tm,"Volume_dif"]*self.f_dict[0](barpost)/self.f_dict[ori_dt](barpre)
-#        if re<10000:
-#            print(tm,barpost,barpre,ori_dt,re)
-#            print(self.df.loc[tm,"Volume_dif"])
-#            print(self.f_dict[0](barpost))
-#            print(self.f_dict[ori_dt](barpre))
+        #print(barpost,barpre,ori_dt,self.df.loc[tm,"Volume_dif"],self.f_dict[0](barpost),self.f_dict[ori_dt](barpre))
+        if re==0:
+            re=self.f_dict[0](barpost)*0.01*(1.05-random.random())
         return re
     def uni_f(self):
         self.f_dict=dict()
+        self.f_para=dict()
         bar_ind={"open":[
                         11,
                         20*(30-1)+11,
@@ -357,8 +355,9 @@ class stock(object):
             #输入是第几根bar  输出是对应的标准量
             [a1,a2,a3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
             #先确定是第几个bar 然后 根据公式得到标准量
-            o_mean=q/x3
+            o_mean=r/x3
             #print([dt,'open',p,q,r,a1,a2,a3])
+            #print([dt,'open',o_mean])
 
             #close
             if self.mkt==1:
@@ -379,16 +378,15 @@ class stock(object):
 
             idx_all=(self.clean_df['grep']>=pd.Timestamp(str(dt)+" 10:00:00" ))&(self.clean_df['grep']<=pd.Timestamp(str(dt)+" 14:45:00" ))
             cc=self.clean_df[idx_all]['Volume_dif'].sum()/((4*60-15-30)*20);x_total[7]+=cc
-            c_mean=q/x3
-            self.f_dict[dt]=lambda x: self.vf(a1,a2,a3,b1,b2,b3,cc,o_mean,c_mean,x)
-            #print([dt,'close',p,q,r,b1,b2,b3,cc])
-
+            c_mean=r/x3
+            self.f_para[dt]=[a1,a2,a3,b1,b2,b3,cc,o_mean,c_mean]
+            self.f_dict[dt]=lambda x: self.vf(*self.f_para[dt],x)
         x_total=[x_total[i]/len(self.dates) for i in range(len(x_total))]
 
         [p,q,r]=[x_total[i] for i in range(1,4)]
         [x1,x2,x3]=bar_ind["open"]
         [a1,a2,a3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
-        o_mean=q/x3
+        o_mean=x_total[3]/x3
 
         [p,q,r]=[x_total[i] for i in range(4,7)]
         if self.mkt==1:
@@ -397,24 +395,31 @@ class stock(object):
             [x1,x2,x3]=bar_ind["close_2"]
         [b1,b2,b3]=solve([a*x1*x1+b*x1+c-p,a*x2*x2+b*x2+c-q,a*x3*x3*x3/3+b*x3*x3/2+c*x3-r],[a,b,c]).values()
         cc=x_total[7]
-        c_mean=q/3
-        self.f_dict[0]=lambda x: self.vf(a1,a2,a3,b1,b2,b3,cc,o_mean,c_mean,x)
-        #print([dt,'total',a1,a2,a3,b1,b2,b3,cc])
+        c_mean=x_total[6]/x3
+
+        self.f_para[0]=[a1,a2,a3,b1,b2,b3,cc,o_mean,c_mean]
+        self.f_dict[0]=lambda x: self.vf(*self.f_para[dt],x)
+        # print([dt,'total',o_mean,c_mean,cc])
+        # print(dt,self.f_dict[dt](0))
+        # print(0,self.f_dict[0](0))
 
     def tm_barnum(self,tm):
         re=int((tm-pd.Timestamp(tm.date())- pd.Timedelta('0 days 09:30:00'))/self.t_delta)
         if re>20*60*2:#早盘2小时
             re=re-20*60*1.5#午休1.5小时
         return int(re)
+    #取该阶段平均数为标准，原因在于二次型可能造成局部过低
     def vf(self,a1,a2,a3,b1,b2,b3,c,o_mean,c_mean,x):#对于开盘收盘 因为可能存在2次曲线到达负值的情形 所以设定了最低限制 mean/10
         if x<=20*30+1:#开盘
-            re=a1*x*x+a2*x+a3
+            #re=a1*x*x+a2*x+a3
+            re=o_mean
             if re>o_mean/10:
                 return re
             else:
                 return o_mean/10
         elif x>20*60*4-20*15:#收盘
-            re=b1*x*x+b2*x+b3
+            #re=b1*x*x+b2*x+b3
+            re=c_mean
             if re>c_mean/10:
                 return re
             else:
@@ -479,8 +484,8 @@ class stock(object):
         last_old_tm=self.df['grep'][-1]
         self.json['LastPrice']=self.csv.loc[last_tm,'LastPrice']
         self.json['old_LastPrice']=self.clean_df.loc[last_old_tm,'LastPrice']
-#        with open(f"./{self.today}.json","w") as f:
-#            json.dump(self.json,f)
+        # with open(f"./{self.today}.json","w") as f:
+        #     json.dump(self.json,f)
         dts=tuple([self.today,self.ctr,self.dates[0],self.dates[-1],self.json['LastPrice'],self.json['old_LastPrice']])
 
         fn=f"./info/{self.ctr}.db"
