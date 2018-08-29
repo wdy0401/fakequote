@@ -49,12 +49,12 @@ def date_map(odts,ndts,random_seed=None):
     num_map=dict()
     olen=len(odts)
     nlen=len(ndts)
-    if (olen/nlen)<2:
-        sys.exit(f"ERROR:date_map not enough dates\n")
+    if (olen/nlen)<3:
+        raise ValueError(f"ERROR:date_map not enough dates olen {olen} nlen {nlen}")
     maxsize=2+int(olen/nlen)
     for i in range(nlen):
-        num_map[i]=2
-    remain=olen-nlen*2
+        num_map[i]=3
+    remain=olen-nlen*3
     i=0
     while(i<remain):
         j=random.randrange(nlen)
@@ -87,14 +87,16 @@ class stock(object):
     def set_today(self,date):
         self.today=date
     def set_ctr(self,ctr):
-        ctr=str(ctr)
-        if(ctr[0:3]=='600' or ctr[0:3]=='601'):
+        ctr=str(ctr).upper()
+        if(ctr[0:2]=='SH'):
             self.mkt=1#SH
-        elif(ctr[0:3]=='000' or ctr[0:3]=='002' or ctr[0:3]=='300'):
+            self.mkt_str="SH"
+        elif(ctr[0:2]=='SZ'):
             self.mkt=2#SZ
+            self.mkt_str="SZ"
         else:
-            raise ValueError("ERROR stock code "+str(ctr))
-        self.ctr=ctr
+            raise ValueError("ERROR stock code "+ctr)
+        self.ctr=ctr[2:8]
     def set_date_range(self,dates):
         for dt in dates:
             fname=self.gen_old_file_name(dt)
@@ -121,6 +123,7 @@ class stock(object):
                 a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])+','+str(a['UpdateMillisec'][x])) for x in range(len(a))]
             pdlist.append(a)
         self.raw_df=pd.concat(pdlist)
+        print(self.ctr,self.today,"raw_df",self.dates,self.raw_df.shape)
     @betimer
     def time_grep(self):
         self.clean_df=self.raw_df.copy()
@@ -142,6 +145,7 @@ class stock(object):
             last_dt=dt
             last_v=v
         self.clean_df['Volume_dif']=lst
+        print(self.ctr,self.today,"clean_df",self.dates,self.clean_df.shape)
     @betimer
     def time_select(self):
         #gen random selected k bars from total m bars
@@ -219,6 +223,7 @@ class stock(object):
                         ph[price].append(y.loc[j,price])
         self.ph=ph
         self.df=pd.DataFrame(ph,index=y3.index)
+        print(self.ctr,self.today,"df",self.dates,self.df.shape)
     @betimer
     def timestamp_adj(self):
         #convert index to 930-1500
@@ -408,18 +413,17 @@ class stock(object):
         if re>20*60*2:#早盘2小时
             re=re-20*60*1.5#午休1.5小时
         return int(re)
-    #取该阶段平均数为标准，原因在于二次型可能造成局部过低
     def vf(self,a1,a2,a3,b1,b2,b3,c,o_mean,c_mean,x):#对于开盘收盘 因为可能存在2次曲线到达负值的情形 所以设定了最低限制 mean/10
         if x<=20*30+1:#开盘
-            #re=a1*x*x+a2*x+a3
-            re=o_mean
+            re=a1*x*x+a2*x+a3
+            #re=o_mean
             if re>o_mean/10:
                 return re
             else:
                 return o_mean/10
         elif x>20*60*4-20*15:#收盘
-            #re=b1*x*x+b2*x+b3
-            re=c_mean
+            re=b1*x*x+b2*x+b3
+            #re=c_mean
             if re>c_mean/10:
                 return re
             else:
@@ -476,9 +480,9 @@ class stock(object):
     def to_csv(self):
         self.fix_volume()
         if win:
-            self.csv.to_csv(f"./data/new/{self.today}/{self.ctr}.csv",line_terminator="\n")
+            self.csv.to_csv(f"./data/new/{self.today}/{self.mkt_str}{self.ctr}.csv",line_terminator="\n")
         else:
-            self.csv.to_csv(f"../THS/fakequote/{self.today}/{self.ctr}.csv",line_terminator="\n")
+            self.csv.to_csv(f"../THS/fakequote/{self.today}/{self.mkt_str}{self.ctr}.csv",line_terminator="\n")
     def post(self):
         last_tm=self.csv.index[-1]
         last_old_tm=self.df['grep'][-1]
