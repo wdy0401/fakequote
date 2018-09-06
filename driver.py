@@ -44,7 +44,7 @@ def process(ctr):
             if win:
                 ndir=f"./data/new/{dt}"
             else:
-                ndir=f"../THS/fakequote/{dt}"
+                ndir=f"../fakequote/{dt}"
             if not os.path.isdir(ndir):
                 os.mkdir(ndir)
             odts=dtmap[dt]

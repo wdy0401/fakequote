@@ -449,13 +449,13 @@ class stock(object):
             mon=str(dt)[4:6]
             day=str(dt)[6:]
             if self.mkt==1:
-                return f"../THS/tick/stock_tick/{year}/{mon}/{day}/txt/SH{self.ctr}.txt.gz"
+                return f"../data/tick/hx/{year}/{dt}/SH{self.ctr}.csv.gz"
             else:
                 return f"../THS/tick/stock_tick/{year}/{mon}/{day}/txt/SZ{self.ctr}.txt.gz"
     def trading_time_grep(self,x):
         if ((x.hour==9 and x.minute>29) \
             or (x.hour==10) \
-            or (x.hour==11 and x.minute<31) \
+            or (x.hour==11 and x.minute<=30) \
             or (x.hour==13) \
             or (self.mkt==1 and x.hour==14) \
             or (self.mkt==2 and x.hour==14 and x.minute<57) \
@@ -482,7 +482,7 @@ class stock(object):
         if win:
             self.csv.to_csv(f"./data/new/{self.today}/{self.mkt_str}{self.ctr}.csv",line_terminator="\n")
         else:
-            self.csv.to_csv(f"../THS/fakequote/{self.today}/{self.mkt_str}{self.ctr}.csv",line_terminator="\n")
+            self.csv.to_csv(f"../fakequote/{self.today}/{self.mkt_str}{self.ctr}.csv",line_terminator="\n")
     def post(self):
         last_tm=self.csv.index[-1]
         last_old_tm=self.df['grep'][-1]
