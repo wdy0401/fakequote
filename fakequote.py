@@ -152,10 +152,15 @@ class stock(object):
     def time_select(self):
         #gen random selected k bars from total m bars
         #每次取20个 丢掉n个 尽量取满整个数据段
-        if self.mkt==1:
-            self.bar_num=20*60*4+2
-        elif self.mkt==2:
-            self.bar_num=20*(60*4-3)+2
+#        if self.mkt==1:
+#            self.bar_num=20*60*4+2
+#        elif self.mkt==2:
+#            self.bar_num=20*(60*4-3)+2
+
+        #新集合竞价
+        self.bar_num=20*(60*4-3)+2
+
+
         sortlist=list(range(len(self.clean_df)))
         random.shuffle(sortlist)
         sortlist=sortlist[0:self.bar_num]
@@ -232,10 +237,12 @@ class stock(object):
         #14:50-15:00 adj
         list_morning=[i*pd.Timedelta('3s')+pd.Timestamp(str(self.today)+" 9:30:00") for i in range(20*60*2+1)]
         list_afternoon=list()
-        if self.mkt==1:
-            list_afternoon=[i*pd.Timedelta('3s')+pd.Timestamp(str(self.today)+" 13:00:00") for i in range(20*60*2+1)]
-        else:
-            list_afternoon=[i*pd.Timedelta('3s')+pd.Timestamp(str(self.today)+" 13:00:00") for i in range(20*60*2+1-3*20)]
+#        if self.mkt==1:
+#            list_afternoon=[i*pd.Timedelta('3s')+pd.Timestamp(str(self.today)+" 13:00:00") for i in range(20*60*2+1)]
+#        else:
+#            list_afternoon=[i*pd.Timedelta('3s')+pd.Timestamp(str(self.today)+" 13:00:00") for i in range(20*60*2+1-3*20)]
+        #新集合竞价
+        list_afternoon=[i*pd.Timedelta('3s')+pd.Timestamp(str(self.today)+" 13:00:00") for i in range(20*60*2+1-3*20)]
         self.time_list=list_morning+list_afternoon
 
     @betimer

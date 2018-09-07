@@ -25,15 +25,7 @@ ctrs=list()
 with open('./stock_list.txt') as f:
     for ctr in f.readlines():
         ctrs.append(ctr.strip())
-#ctrs=['000006']
-#ctrs=['600000','000006']
-#nds=[20200101]
-#ctrs=['600000']
-#nds=[20200109]
 
-#ctrs=['SH600053']
-#nds=[20200101]
-#sd=dict()
 
 def process(ctr):
     try:
