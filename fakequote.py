@@ -38,23 +38,24 @@ prterr=lambda x : sys.stderr.write(x)
 def betimer(func):
     @wraps(func)
     def wrapper(*args, **kw):
-#        btime=datetime.now()
+        btime=datetime.now()
         ret=func(*args, **kw)
-#        dift=datetime.now()-btime
-#        print('%s %s' % (func.__name__ , dift))
+        dift=datetime.now()-btime
+        print('%s %s' % (func.__name__ , dift))
         return ret
     return wrapper
 def date_map(odts,ndts,random_seed=None):
     random.seed(random_seed)
+    leastdaynum=2
     num_map=dict()
     olen=len(odts)
     nlen=len(ndts)
-    if (olen/nlen)<3:
+    if (olen/nlen)<leastdaynum:
         raise ValueError(f"ERROR:date_map not enough dates olen {olen} nlen {nlen}")
     maxsize=2+int(olen/nlen)
     for i in range(nlen):
-        num_map[i]=3
-    remain=olen-nlen*3
+        num_map[i]=leastdaynum
+    remain=olen-nlen*leastdaynum
     i=0
     while(i<remain):
         j=random.randrange(nlen)
@@ -112,10 +113,11 @@ class stock(object):
         pdlist=list()
         for dt in self.dates:
             fname=self.gen_old_file_name(dt)
-            if fname[-2:]=='gz':
+            if fname[-2:].lower()=='gz':
                 with gzip.open(fname,mode='rt') as f:
-                    nms=["SecurityID","TradingDay","UpdateTime","PreClosePrice","OpenPrice","HighestPrice","LowestPrice","LastPrice","Volume","x1","x2","BidPrice1","BidVolume1","BidPrice2","BidVolume2","BidPrice3","BidVolume3","BidPrice4","BidVolume4","BidPrice5","BidVolume5","AskPrice1","AskVolume1","AskPrice2","AskVolume2","AskPrice3","AskVolume3","AskPrice4","AskVolume4","AskPrice5","AskVolume5","BidPrice6","BidVolume6","BidPrice7","BidVolume7","BidPrice8","BidVolume8","BidPrice9","BidVolume9","BidPrice10","BidVolume10","AskPrice6","AskVolume6","AskPrice7","AskVolume7","AskPrice8","AskVolume8","AskPrice9","AskVolume9","AskPrice10","AskVolume10","x3","x4","x5","x6"]
+                    nms=["TradingDay","SecurityID","ExchangeID","SecurityName","PreClosePrice","OpenPrice","Volume","Turnover","TradingCount","LastPrice","HighestPrice","LowestPrice","BidPrice1","AskPrice1","UpperLimitPrice","LowerLimitPrice","PERatio1","PERatio2","PriceUpDown1","PriceUpDown2","OpenInterest","BidVolume1","AskVolume1","BidPrice2","BidVolume2","AskPrice2","AskVolume2","BidPrice3","BidVolume3","AskPrice3","AskVolume3","BidPrice4","BidVolume4","AskPrice4","AskVolume4","BidPrice5","BidVolume5","AskPrice5","AskVolume5","UpdateTime","UpdateMillisec","ClosePrice","MDSecurityStat","HWFlag"]
                     a=pd.read_csv(f,parse_dates=True,names=nms)
+                    a['TradingDay']=[str(x) for x in a['TradingDay']]
                     a.index=[pd.Timestamp(x) for x in a['TradingDay']+" "+a['UpdateTime']]
 
             else:
@@ -235,7 +237,28 @@ class stock(object):
         else:
             list_afternoon=[i*pd.Timedelta('3s')+pd.Timestamp(str(self.today)+" 13:00:00") for i in range(20*60*2+1-3*20)]
         self.time_list=list_morning+list_afternoon
+
+    @betimer
+    def fill_to_full(self):
+        #若不满足总行数要求 增加重复项以满足
+        #714 停盘
+        #952 停盘
+        #限度卡在2/3  如果小于2/3就不进行添加操作 直接在后面Length mismatcht退出
+        #按照每天tick数进行判断 必要性值得商榷 目前还是按照总tick数进行处理
+        len_need=len(self.time_list)
+        len_now=self.df.shape[0]
+        if len_now>len_need*2/3 and len_now<len_need:
+            tmp_list=list(range(len_now))
+            random.shuffle(tmp_list)
+            idx=tmp_list[0:len_need-len_now]
+
+            tmp=self.df.iloc[idx]
+            tmp['Volume_dif']=0
+            self.df=self.df.append(tmp)
+
+            self.df.sort_index(inplace=True)
         self.df.index=self.time_list
+
     @betimer
     def hl_limit_adj(self):
         pc=0
@@ -248,6 +271,7 @@ class stock(object):
                      tmp['AskPrice1']*tmp['AskVolume1'])/(\
                         tmp['BidVolume1']+tmp['AskVolume1']),2)
             #pc=round(((tmp['BidPrice1']+tmp['AskPrice1'])/2),2)
+            self.pre_close=pc
             print(self.ctr,self.today,pc,2)
         self.high_limit=round(pc*1.1,2)
         #self.high_limit=12.7
@@ -443,15 +467,15 @@ class stock(object):
     def gen_old_file_name(self,dt):
         #return f"./data/md/{dt}/{self.ctr}_{self.mkt}.bak.csv"
         if win:
-            return f"./data/old/{self.ctr}/{dt}.txt.gz"
+            return f"./data/old/{self.ctr}/{dt}.csv.gz"
         else:
             year=str(dt)[0:4]
-            mon=str(dt)[4:6]
+            #mon=str(dt)[4:6]
             day=str(dt)[6:]
             if self.mkt==1:
-                return f"../data/tick/hx/{year}/{dt}/SH{self.ctr}.csv.gz"
+                return f"../data/tick/hx_f_adj/{year}/{dt}/SH{self.ctr}.csv.gz"
             else:
-                return f"../THS/tick/stock_tick/{year}/{mon}/{day}/txt/SZ{self.ctr}.txt.gz"
+                return f"../data/tick/hx_f_adj/{year}/{dt}/SZ{self.ctr}.csv.gz"
     def trading_time_grep(self,x):
         if ((x.hour==9 and x.minute>29) \
             or (x.hour==10) \
@@ -477,12 +501,28 @@ class stock(object):
         tmp['Volume']=v
         tmp.pop("Volume_dif")
         self.csv=tmp
+    def add_price_s(self):
+        self.csv['PreClosePrice']=self.pre_close
+        self.csv['HighestPrice']=self.high_limit
+        self.csv['LowestPrice']=self.low_limit
+
     def to_csv(self):
         self.fix_volume()
+        self.add_price_s()
+        self.csv['TradingDay']=self.today
+        self.csv['SecurityID']=self.ctr
+        self.csv['ExchangeID']=self.mkt
+        self.csv['UpdateTime']=self.csv.index.strftime("%H:%M:%S")
+        headers=["TradingDay","SecurityID","ExchangeID","SecurityName","PreClosePrice","OpenPrice","Volume","Turnover","TradingCount","LastPrice","HighestPrice","LowestPrice","BidPrice1","AskPrice1","UpperLimitPrice","LowerLimitPrice","PERatio1","PERatio2","PriceUpDown1","PriceUpDown2","OpenInterest","BidVolume1","AskVolume1","BidPrice2","BidVolume2","AskPrice2","AskVolume2","BidPrice3","BidVolume3","AskPrice3","AskVolume3","BidPrice4","BidVolume4","AskPrice4","AskVolume4","BidPrice5","BidVolume5","AskPrice5","AskVolume5","UpdateTime","UpdateMillisec","ClosePrice","MDSecurityStat","HWFlag"]
+        now_col=self.csv.columns
+        for col in headers:
+            if col not in now_col:
+                self.csv[col]=""
+        self.csv=self.csv.loc[:,headers]
         if win:
-            self.csv.to_csv(f"./data/new/{self.today}/{self.mkt_str}{self.ctr}.csv",line_terminator="\n")
+            self.csv.to_csv(f"./data/new/{self.today}/{self.mkt_str}{self.ctr}.csv",line_terminator="\n",index=False)
         else:
-            self.csv.to_csv(f"../fakequote/{self.today}/{self.mkt_str}{self.ctr}.csv",line_terminator="\n")
+            self.csv.to_csv(f"../fakequote/{self.today}/{self.mkt_str}{self.ctr}.csv",line_terminator="\n",index=False)
     def post(self):
         last_tm=self.csv.index[-1]
         last_old_tm=self.df['grep'][-1]
@@ -523,6 +563,7 @@ class stock(object):
 #
 #zz.conbine_bar()
 #zz.timestamp_adj()
+#zz.fill_to_full()
 #zz.hl_limit_adj()
 #zz.volume_adj()
 #zz.to_csv()

@@ -18,7 +18,7 @@ if win:
 from wutils import trade_date
 
 ods=trade_date.getbizds(20180101,20180629)
-nds=trade_date.getbizds(20200101,20200215)
+nds=trade_date.getbizds(20200101,20200228)
 dtmap=date_map(ods,nds,100)
 #sys.exit()
 ctrs=list()
@@ -32,8 +32,9 @@ with open('./stock_list.txt') as f:
 #nds=[20200109]
 
 #ctrs=['SH600053']
-#nds=[20200101,20200103]
+#nds=[20200101]
 #sd=dict()
+
 def process(ctr):
     try:
         pre_dict=dict()
@@ -62,6 +63,7 @@ def process(ctr):
             zz.time_select()
             zz.conbine_bar()
             zz.timestamp_adj()
+            zz.fill_to_full()
             zz.hl_limit_adj()
             zz.volume_adj()
             zz.to_csv()
@@ -84,16 +86,12 @@ if __name__=='__main__':
     p.join()
     print('All subprocesses done.')
 
-#if __name__=='__main__':
-#
-#    for ctr in ctrs:
-#        process(ctr)
 
 
 
 
-#ctrs=['SH600053']
 #nds=[20200101,20200103]
+#ctr='SH600272'
 #pre_dict=dict()
 #pre_dict['last_odt']=0
 #pre_dict['pre_close']=0
@@ -120,6 +118,7 @@ if __name__=='__main__':
 #    zz.time_select()
 #    zz.conbine_bar()
 #    zz.timestamp_adj()
+#    zz.fill_to_full()
 #    zz.hl_limit_adj()
 #    zz.volume_adj()
 #    zz.to_csv()
