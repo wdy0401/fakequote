@@ -252,12 +252,14 @@ class stock(object):
         #952 停盘
         #限度卡在2/3  如果小于2/3就不进行添加操作 直接在后面Length mismatcht退出
         #按照每天tick数进行判断 必要性值得商榷 目前还是按照总tick数进行处理
+        random.seed(10)
         len_need=len(self.time_list)
         len_now=self.df.shape[0]
-        if len_now>len_need*2/3 and len_now<len_need:
+        if len_now/(240*len(self.dates)) > 1 and len_now<len_need:#至少一分钟一个
             tmp_list=list(range(len_now))
             random.shuffle(tmp_list)
-            idx=tmp_list[0:len_need-len_now]
+#            idx=tmp_list[0:len_need-len_now]
+            idx=[random.randint(0,len_now-1) for x in range(len_need-len_now)]
 
             tmp=self.df.iloc[idx]
             tmp['Volume_dif']=0
