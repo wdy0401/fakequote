@@ -125,6 +125,14 @@ class stock(object):
                 a.index=[pd.Timestamp(str(a['TradingDay'][x])+" "+str(a['UpdateTime'][x])+','+str(a['UpdateMillisec'][x])) for x in range(len(a))]
             pdlist.append(a)
         self.raw_df=pd.concat(pdlist)
+
+        #保证bid1 一定存在
+        nanlist=self.raw_df.isna()['BidPrice1']
+        self.raw_df.loc[nanlist,'BidPrice1']=self.raw_df.loc[:,'BidPrice1'].agg(min)
+        self.raw_df.loc[nanlist,'BidPrice1']=100
+
+
+
         print(self.ctr,self.today,"raw_df",self.dates,self.raw_df.shape)
     @betimer
     def time_grep(self):
@@ -192,11 +200,15 @@ class stock(object):
         # self.y0=y0
         # self.y1=y1
         # self.y2=y2
-        # self.y3=y3
+        self.y3=y3
 
         ph=dict()
         lastp=0
         pdif=0
+        #保证bid1 一定存在
+        #nanlist=y3.isna()['BidPrice1']
+        #y3.loc[nanlist,'BidPrice1']=y3.loc[:,'BidPrice1'].agg(min)
+        #y3.loc[nanlist,'BidPrice1']=100
 
         ph['BidPrice1']=list()
         for i,j in enumerate(y3.index):

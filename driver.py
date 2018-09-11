@@ -67,8 +67,8 @@ def process(ctr):
             if (not zz.json['LastPrice']>0) and (not zz.json['LastPrice']<0):
                 raise ValueError("Nan error")
     except Exception as e:
-        print('Error:',ctr,dt,e)
-if 1:
+        print('Error:',ctr,dt,dtmap[dt],e)
+if 0:
     if __name__=='__main__':
         p = Pool(8)
         for ctr in ctrs:
@@ -78,8 +78,8 @@ if 1:
         p.join()
         print('All subprocesses done.')
 
-if 0:
-    nds=[20200101,20200103]
+if 1:
+    nds=[20200101,20200114]
     ctr='SH600272'
     pre_dict=dict()
     pre_dict['last_odt']=0
